@@ -108,4 +108,5 @@ code {
   line-height: 130%;
   padding: 4px 8px;
   background: var(--code-bg);
+  font-family: 'Times New Roman', Times, serif;
 }
