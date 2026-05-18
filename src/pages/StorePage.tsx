@@ -2,6 +2,7 @@ import { Coins, CreditCard, Ticket, Wallet } from 'lucide-react';
 import { AppButton } from '@/components/common/AppButton';
 import SectionCard from '@/components/common/SectionCard';
 import { Voucher } from '@/types/civiceye';
+import { useState } from "react";
 
 export default function StorePage() {
   const vouchers: Voucher[] = [
@@ -9,8 +10,15 @@ export default function StorePage() {
     { id: 'v2', type: 'money', title: 'Money Voucher', description: 'Tukarkan point untuk E-wallet Rp 10.000,00', points: 500, badge: 'E-wallet' },
   ];
 
+  const [points, setPoints] = useState(1250);
+  const [message, setMessage] = useState("");
+
   return (
     <SectionCard title="Rewards Marketplace" subtitle="Tukar Civic Points menjadi voucher yang berguna." icon={<Ticket className="h-5 w-5 text-orange-600" />}>
+      <div className="rounded-[24px] bg-orange-50 p-4">
+        <p className="text-sm text-stone-500">Your Points</p>
+        <h2 className="text-3xl font-bold text-orange-600">{points}</h2>
+      </div>
       <div className="space-y-3">
         {vouchers.map((voucher) => (
           <article key={voucher.id} className="rounded-[28px] bg-stone-50 p-4">
@@ -34,11 +42,23 @@ export default function StorePage() {
               <div className="flex items-center gap-2 text-xs text-stone-500">
                 <Coins className="h-4 w-4 text-orange-500" /> Tukar poinmu
               </div>
-              <AppButton variant="secondary">Redeem</AppButton>
+              <AppButton variant="secondary" onClick={() => {
+                if (points >= voucher.points) {
+                  setPoints(points - voucher.points);
+                  setMessage("🎉 Yeay! your points successfully redeemed");
+                } else {
+                  setMessage("❌ Poin kamu tidak cukup");
+                }
+              }}>Redeem</AppButton>
             </div>
           </article>
         ))}
       </div>
     </SectionCard>
   );
+    {message && (
+    <div className="fixed bottom-24 left-1/2 z-50 w-[90%] max-w-sm -translate-x-1/2 rounded-2xl bg-stone-900 px-4 py-3 text-center text-white shadow-xl">
+      {message}
+    </div>
+  )}
 }

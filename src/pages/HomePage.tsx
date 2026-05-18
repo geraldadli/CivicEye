@@ -1,4 +1,6 @@
 import React, { useMemo } from "react";
+import { useState } from "react";
+import NotificationModel from "../components/common/NotificationModal";
 import {
   Bell,
   ClipboardList,
@@ -25,6 +27,7 @@ type ReportItem = {
 
 export default function HomePage() {
   const points = 1250;
+  const  [showwNotif, setShowNotif] = useState(false);
   const rank = useMemo(() => getRank(points), [points]);
 
   const reports: ReportItem[] = [
@@ -61,7 +64,7 @@ export default function HomePage() {
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">Halo, David</h1>
           </div>
-          <button className="rounded-2xl bg-white/15 p-3 backdrop-blur-sm">
+          <button onClick={() => setShowNotif(true)} className="rounded-2xl bg-white/15 p-3 backdrop-blur-sm">
             <Bell className="h-5 w-5" />
           </button>
         </div>
@@ -100,18 +103,14 @@ export default function HomePage() {
 
       <section className="grid grid-cols-3 gap-3">
         {[
-          { icon: <ClipboardList className="h-5 w-5" />, label: "Laporan" },
-          { icon: <MessageSquareText className="h-5 w-5" />, label: "Forum" },
-          { icon: <Medal className="h-5 w-5" />, label: "Rewards" },
+          { icon: <ClipboardList className="h-5 w-5" />, label: "Laporan" ,  tab: "scan",},
+          { icon: <MessageSquareText className="h-5 w-5" />, label: "Forum", tab: "forum",},
+          { icon: <Medal className="h-5 w-5" />, label: "Rewards", tab:"store",},
         ].map((item) => (
           <button
-            key={item.label}
-            className="flex flex-col items-center gap-2 rounded-[24px] bg-white p-4 text-stone-800 shadow-[0_14px_30px_rgba(122,62,25,0.08)] ring-1 ring-orange-100 transition hover:-translate-y-0.5"
-          >
-            <div className="rounded-2xl bg-orange-100 p-3 text-orange-700">
-              {item.icon}
-            </div>
-            <span className="text-sm font-semibold">{item.label}</span>
+            key = {item.label}
+            onClick={() => console.log("navigate:", item.tab)}
+            className="flex flex-col items-center gap-2 rounded-[24px] bg-white p-4 text-stone-800 shadow-[0_14px_30px_rgba(122,62,25,0.08)] ring-1 ring-orange-100 transition hover:-translate-y-0.5">
           </button>
         ))}
       </section>
@@ -123,9 +122,12 @@ export default function HomePage() {
       >
         <div className="space-y-3">
           {reports.map((report) => (
-            <div
+            <button
               key={report.id}
-              className="flex items-center justify-between rounded-2xl bg-stone-50 p-4"
+              onClick={() => {
+                console.log("Open rerport:", report.id);
+              }}
+              className="flex items-center justify-between rounded-2xl bg-stone-50 p-4 text-left transition hover: bg-orange-50"
             >
               <div>
                 <div className="flex items-center gap-2">
@@ -137,10 +139,11 @@ export default function HomePage() {
                 </p>
               </div>
               <ChevronRight className="h-5 w-5 text-stone-400" />
-            </div>
+            </button>
           ))}
         </div>
       </SectionCard>
+      <NotificationModel open = {showwNotif} onClose={() => setShowNotif(false)}/>
     </div>
   );
 }
