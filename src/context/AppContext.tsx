@@ -89,7 +89,7 @@ interface AppContextType {
   projects: CommunityProject[];
   volunteerTask: VolunteerTask;
   proposals: ProjectProposal[];
-  login: (email: string, role: "volunteer" | "staff") => void;
+  login: (email: string, role: "volunteer" | "staff", displayName?: string) => void;
   logout: () => void;
   addReport: (title: string, location: string, details: string) => void;
   updateReportStatus: (id: string, status: ReportStatus) => void;
@@ -348,8 +348,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.setItem("civiceye_proposals", JSON.stringify(proposals));
   }, [proposals]);
 
-  const login = (email: string, userRole: "volunteer" | "staff") => {
-    const name = email.split("@")[0];
+  const login = (email: string, userRole: "volunteer" | "staff", displayName?: string) => {
+    const defaultName = email.split("@")[0];
+    const name = displayName || defaultName;
     const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
     const mockUser: User = {
       name: capitalized,
