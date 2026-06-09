@@ -103,13 +103,7 @@ function VolunteerPortal() {
               })}
             </nav>
 
-            <div className="mt-auto space-y-3">
-              <div className="rounded-[24px] bg-stone-50 p-4">
-                <p className="text-sm font-semibold text-stone-900">Separate windows</p>
-                <p className="mt-1 text-sm text-stone-500">
-                  Each tab renders one screen at a time, so every page stays easy to manage.
-                </p>
-              </div>
+            <div className="mt-auto">
               <button
                 onClick={logout}
                 className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-red-600 hover:bg-red-50 hover:text-red-700 transition font-semibold"
@@ -144,7 +138,7 @@ function VolunteerPortal() {
           </header>
 
           <div className="mx-auto w-full max-w-5xl pb-28 lg:pb-6">
-            <div className="mb-4 hidden gap-2 overflow-x-auto rounded-[24px] bg-white/80 p-2 shadow-sm border border-orange-150 md:flex">
+            <div className="mb-4 hidden gap-2 overflow-x-auto rounded-[24px] bg-white/80 p-2 shadow-sm border border-orange-150 md:flex lg:hidden">
               {navItems.map(({ key, label, icon: Icon }) => {
                 const active = tab === key;
                 return (

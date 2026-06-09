@@ -35,7 +35,7 @@ export default function StaffPortal() {
   const [activeTab, setActiveTab] = useState<StaffTab>("inbox");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [separateWindows, setSeparateWindows] = useState(false);
+
 
   const sidebarItems = [
     { key: "home", label: "Home", icon: Home },
@@ -141,23 +141,7 @@ export default function StaffPortal() {
               })}
             </nav>
 
-            <div className="pt-4 border-t border-white/10 space-y-4">
-              <div className="flex items-center justify-between text-stone-300">
-                <span className="text-sm font-medium">Separate windows</span>
-                <button
-                  onClick={() => setSeparateWindows(!separateWindows)}
-                  className={`w-11 h-6 rounded-full transition-colors relative ${
-                    separateWindows ? "bg-orange-500" : "bg-stone-600"
-                  }`}
-                >
-                  <div
-                    className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${
-                      separateWindows ? "right-1" : "left-1"
-                    }`}
-                  />
-                </button>
-              </div>
-
+            <div className="pt-4 border-t border-white/10">
               <button
                 onClick={logout}
                 className="flex w-full items-center gap-3.5 rounded-2xl px-4 py-3.5 text-left text-red-400 hover:bg-red-500/10 hover:text-red-300 transition font-bold"
@@ -204,23 +188,7 @@ export default function StaffPortal() {
               })}
             </nav>
 
-            <div className="mt-auto pt-4 border-t border-white/10 space-y-4">
-              <div className="flex items-center justify-between text-stone-300">
-                <span className="text-sm font-semibold">Separate windows</span>
-                <button
-                  onClick={() => setSeparateWindows(!separateWindows)}
-                  className={`w-11 h-6 rounded-full transition-colors relative ${
-                    separateWindows ? "bg-orange-500" : "bg-stone-600"
-                  }`}
-                >
-                  <div
-                    className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${
-                      separateWindows ? "right-1" : "left-1"
-                    }`}
-                  />
-                </button>
-              </div>
-
+            <div className="mt-auto pt-4 border-t border-white/10">
               <button
                 onClick={logout}
                 className="flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 text-left text-red-400 hover:bg-red-500/10 hover:text-red-300 transition font-bold"
@@ -235,44 +203,7 @@ export default function StaffPortal() {
         {/* Content Wrapper */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden lg:py-6 lg:pr-6">
           {/* Top Navbar */}
-          <div className="hidden lg:flex items-center justify-between mb-5 bg-[#C9DFEC]/50 hover:bg-[#C9DFEC]/70 border border-[#b8cedb] rounded-[24px] p-2 backdrop-blur transition shrink-0">
-            {/* Top Navigation Tabs */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setActiveTab("inbox")}
-                className={`flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold transition whitespace-nowrap ${
-                  activeTab === "inbox"
-                    ? "bg-[#E27D3A] text-white shadow-md shadow-orange-100"
-                    : "text-[#0F354D] hover:bg-white/30"
-                }`}
-              >
-                <LayoutGrid className="w-4 h-4" />
-                Reports Overview
-              </button>
-              <button
-                onClick={() => setActiveTab("tasks")}
-                className={`flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold transition whitespace-nowrap ${
-                  activeTab === "tasks"
-                    ? "bg-[#E27D3A] text-white shadow-md shadow-orange-100"
-                    : "text-[#0F354D] hover:bg-white/30"
-                }`}
-              >
-                <Map className="w-4 h-4" />
-                Field Coordination
-              </button>
-              <button
-                onClick={() => setActiveTab("analytics")}
-                className={`flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold transition whitespace-nowrap ${
-                  activeTab === "analytics"
-                    ? "bg-[#E27D3A] text-white shadow-md shadow-orange-100"
-                    : "text-[#0F354D] hover:bg-white/30"
-                }`}
-              >
-                <BarChart3 className="w-4 h-4" />
-                Analytics
-              </button>
-            </div>
-
+          <div className="hidden lg:flex items-center justify-end mb-5 bg-[#C9DFEC]/50 hover:bg-[#C9DFEC]/70 border border-[#b8cedb] rounded-[24px] p-2 backdrop-blur transition shrink-0">
             {/* Profile Dropdown */}
             <div className="relative">
               <button

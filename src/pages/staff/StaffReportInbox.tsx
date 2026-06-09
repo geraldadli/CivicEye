@@ -379,7 +379,7 @@ export default function StaffReportInbox() {
           <div
             className={`${
               mobileView !== "toolbar" ? "hidden lg:flex" : "flex"
-            } w-full lg:w-90 flex-col overflow-y-auto p-5 bg-[#0C2942] border-t lg:border-t-0 lg:border-l border-[#1E4D6B] h-full space-y-4.5 shrink-0`}
+            } w-full lg:w-96 flex-col overflow-y-auto p-5 bg-[#0C2942] border-t lg:border-t-0 lg:border-l border-[#1E4D6B] h-full space-y-4.5 shrink-0`}
           >
             {/* Mobile Navigation bar inside toolbar */}
             <div className="lg:hidden flex items-center justify-between pb-3 border-b border-[#1E4D6B]">
