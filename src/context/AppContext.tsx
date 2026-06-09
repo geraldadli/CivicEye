@@ -64,6 +64,16 @@ export interface VolunteerTask {
   status: "available" | "accepted" | "uploaded" | "completed" | "claimed";
 }
 
+export interface ProjectProposal {
+  id: string;
+  title: string;
+  location: string;
+  description: string;
+  category: string;
+  proposerName: string;
+  status: "pending" | "approved" | "rejected";
+}
+
 interface User {
   name: string;
   email: string;
@@ -78,6 +88,7 @@ interface AppContextType {
   teams: FieldTeam[];
   projects: CommunityProject[];
   volunteerTask: VolunteerTask;
+  proposals: ProjectProposal[];
   login: (email: string, role: "volunteer" | "staff") => void;
   logout: () => void;
   addReport: (title: string, location: string, details: string) => void;
@@ -98,6 +109,10 @@ interface AppContextType {
   uploadVolunteerTaskPhoto: () => void;
   completeVolunteerTask: () => void;
   claimVolunteerTaskPayout: () => void;
+  // Citizen Proposal actions
+  proposeProject: (title: string, location: string, description: string, category: string) => void;
+  approveProjectProposal: (id: string) => void;
+  rejectProjectProposal: (id: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -238,6 +253,27 @@ const INITIAL_TASK: VolunteerTask = {
   status: "available",
 };
 
+const INITIAL_PROPOSALS: ProjectProposal[] = [
+  {
+    id: "prop1",
+    title: "Penanaman Pohon Teduh",
+    location: "Taman Hias Anggrek",
+    description: "Mengusulkan penanaman 20 pohon pelindung untuk mengurangi polusi udara dan membuat taman bermain anak lebih rindang.",
+    category: "Greenery",
+    proposerName: "Warga Budi",
+    status: "pending",
+  },
+  {
+    id: "prop2",
+    title: "Kerja Bakti Cat Ulang JPO",
+    location: "Jl. Melati Raya",
+    description: "Jembatan penyebrangan orang (JPO) terlihat kusam dan penuh coretan liar. Mengajak warga kerja bakti mengecat ulang.",
+    category: "Repair",
+    proposerName: "David",
+    status: "pending",
+  },
+];
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -268,6 +304,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const [volunteerTask, setVolunteerTask] = useState<VolunteerTask>(() => {
     const saved = localStorage.getItem("civiceye_vtask");
     return saved ? JSON.parse(saved) : INITIAL_TASK;
+  });
+
+  const [proposals, setProposals] = useState<ProjectProposal[]>(() => {
+    const saved = localStorage.getItem("civiceye_proposals");
+    return saved ? JSON.parse(saved) : INITIAL_PROPOSALS;
   });
 
   useEffect(() => {
@@ -301,6 +342,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     localStorage.setItem("civiceye_vtask", JSON.stringify(volunteerTask));
   }, [volunteerTask]);
+
+  useEffect(() => {
+    localStorage.setItem("civiceye_proposals", JSON.stringify(proposals));
+  }, [proposals]);
 
   const login = (email: string, userRole: "volunteer" | "staff") => {
     const name = email.split("@")[0];
@@ -498,6 +543,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   };
 
+  // Citizen Proposal actions
+  const proposeProject = (
+    title: string,
+    location: string,
+    description: string,
+    category: string
+  ) => {
+    const newProposal: ProjectProposal = {
+      id: "prop" + Math.floor(1000 + Math.random() * 9000).toString(),
+      title,
+      location,
+      description,
+      category,
+      proposerName: user?.name || "David",
+      status: "pending",
+    };
+    setProposals((prev) => [newProposal, ...prev]);
+  };
+
+  const approveProjectProposal = (id: string) => {
+    let proposalToApprove: ProjectProposal | null = null;
+    
+    setProposals((prev) =>
+      prev.map((p) => {
+        if (p.id === id) {
+          proposalToApprove = p;
+          return { ...p, status: "approved" };
+        }
+        return p;
+      })
+    );
+
+    if (proposalToApprove) {
+      const p = proposalToApprove as ProjectProposal;
+      const emojiMap: Record<string, string> = {
+        Greenery: "🌳",
+        Repair: "🚧",
+        Cleanup: "🌊",
+      };
+      
+      const newProject: CommunityProject = {
+        id: "p" + Math.floor(100 + Math.random() * 900).toString(),
+        title: p.title,
+        location: p.location,
+        volunteers: 1, // proposer is the first registered volunteer!
+        donated: 0,
+        target: 10000000,
+        emoji: emojiMap[p.category] || "🌊",
+        joined: true,
+      };
+
+      setProjects((prev) => [newProject, ...prev]);
+    }
+  };
+
+  const rejectProjectProposal = (id: string) => {
+    setProposals((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, status: "rejected" } : p))
+    );
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -507,6 +613,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         teams,
         projects,
         volunteerTask,
+        proposals,
         login,
         logout,
         addReport,
@@ -527,6 +634,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         uploadVolunteerTaskPhoto,
         completeVolunteerTask,
         claimVolunteerTaskPayout,
+        // Citizen Proposal actions
+        proposeProject,
+        approveProjectProposal,
+        rejectProjectProposal,
       }}
     >
       {children}

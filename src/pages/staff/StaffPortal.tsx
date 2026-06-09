@@ -13,6 +13,7 @@ import {
   ChevronDown,
   LayoutGrid,
   Map,
+  MessageSquare,
 } from "lucide-react";
 
 import StaffDashboard from "./StaffDashboard";
@@ -21,25 +22,29 @@ import StaffTeamManagement from "./StaffTeamManagement";
 import StaffFieldTasks from "./StaffFieldTasks";
 import StaffAnalytics from "./StaffAnalytics";
 import StaffSettings from "./StaffSettings";
+import StaffProposals from "./StaffProposals";
 
 type StaffTab =
   | "home"
   | "inbox"
+  | "proposals"
   | "teams"
   | "tasks"
   | "analytics"
   | "settings";
 
 export default function StaffPortal() {
-  const { user, logout } = useApp();
+  const { user, logout, proposals } = useApp();
   const [activeTab, setActiveTab] = useState<StaffTab>("inbox");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
+  const pendingCount = proposals.filter((p) => p.status === "pending").length;
 
   const sidebarItems = [
     { key: "home", label: "Home", icon: Home },
     { key: "inbox", label: "Report Inbox", icon: Inbox },
+    { key: "proposals", label: "Citizen Proposals", icon: MessageSquare },
     { key: "teams", label: "Team Management", icon: Users },
     { key: "tasks", label: "Field Tasks", icon: Briefcase },
     { key: "analytics", label: "Data & Analytics", icon: BarChart3 },
@@ -52,6 +57,8 @@ export default function StaffPortal() {
         return <StaffDashboard setActiveTab={setActiveTab} />;
       case "inbox":
         return <StaffReportInbox />;
+      case "proposals":
+        return <StaffProposals />;
       case "teams":
         return <StaffTeamManagement />;
       case "tasks":
@@ -135,7 +142,12 @@ export default function StaffPortal() {
                     }`}
                   >
                     <Icon className="h-5 w-5 shrink-0" />
-                    <span>{label}</span>
+                    <span className="flex-1">{label}</span>
+                    {key === "proposals" && pendingCount > 0 && (
+                      <span className="bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
+                        {pendingCount}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -182,7 +194,12 @@ export default function StaffPortal() {
                     }`}
                   >
                     <Icon className="h-5 w-5 shrink-0" />
-                    <span>{label}</span>
+                    <span className="flex-1">{label}</span>
+                    {key === "proposals" && pendingCount > 0 && (
+                      <span className="bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
+                        {pendingCount}
+                      </span>
+                    )}
                   </button>
                 );
               })}
