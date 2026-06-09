@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import {
-  Menu,
   Search,
   Home,
   MessageSquareText,
   ScanLine,
   Users,
   Store,
+  LogOut,
 } from "lucide-react";
 
 import BottomNav from "@/components/BottomNav";
@@ -17,6 +17,9 @@ import CommunityPage from "@/pages/CommunityPage";
 import StorePage from "@/pages/StorePage";
 import { BottomTab } from "@/types/civiceye";
 import { getRank } from "@/utils/ranks";
+import { AppProvider, useApp } from "@/context/AppContext";
+import LoginScreen from "@/components/LoginScreen";
+import StaffPortal from "@/pages/staff/StaffPortal";
 
 const navItems: Array<{
   key: BottomTab;
@@ -30,9 +33,10 @@ const navItems: Array<{
   { key: "store", label: "Store / Rewards", icon: Store },
 ];
 
-export default function App() {
+function VolunteerPortal() {
   const [tab, setTab] = useState<BottomTab>("home");
-  const points = 1250;
+  const { user, logout } = useApp();
+  const points = user?.points ?? 1250;
   const rank = useMemo(() => getRank(points), [points]);
 
   const page = {
@@ -44,7 +48,7 @@ export default function App() {
   }[tab];
 
   return (
-    <div className="min-h-screen overflow-x-hidden text-stone-900">
+    <div className="min-h-screen overflow-x-hidden text-stone-900 bg-transparent">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col lg:flex-row">
         <aside className="hidden lg:block lg:w-80 lg:p-6">
           <div className="sticky top-6 flex h-[calc(100vh-3rem)] flex-col rounded-[32px] border border-orange-100 bg-white/90 p-5 shadow-[0_16px_40px_rgba(122,62,25,0.12)] backdrop-blur">
@@ -99,30 +103,48 @@ export default function App() {
               })}
             </nav>
 
-            <div className="mt-auto rounded-[24px] bg-stone-50 p-4">
-              <p className="text-sm font-semibold text-stone-900">Separate windows</p>
-              <p className="mt-1 text-sm text-stone-500">
-                Each tab renders one screen at a time, so every page stays easy to manage.
-              </p>
+            <div className="mt-auto space-y-3">
+              <div className="rounded-[24px] bg-stone-50 p-4">
+                <p className="text-sm font-semibold text-stone-900">Separate windows</p>
+                <p className="mt-1 text-sm text-stone-500">
+                  Each tab renders one screen at a time, so every page stays easy to manage.
+                </p>
+              </div>
+              <button
+                onClick={logout}
+                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-red-600 hover:bg-red-50 hover:text-red-700 transition font-semibold"
+              >
+                <LogOut className="h-5 w-5" />
+                <span>Log Out</span>
+              </button>
             </div>
           </div>
         </aside>
 
         <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8">
-          <header className="mb-4 flex items-center justify-between lg:hidden">
+          <header className="mb-4 flex items-center justify-between lg:hidden bg-white/80 p-4 rounded-3xl border border-orange-100 shadow-sm backdrop-blur">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.2em] text-orange-600">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">
                 CivicEye
               </p>
-              <h1 className="text-lg font-bold">Community Action Platform</h1>
+              <h1 className="text-lg font-bold text-stone-950">Community Platform</h1>
             </div>
-            <button className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-orange-100">
-              <Search className="h-5 w-5 text-stone-700" />
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={logout}
+                className="rounded-2xl bg-white p-3 shadow-sm border border-orange-100 text-red-600 hover:bg-red-50 hover:text-red-700 transition"
+                title="Log Out"
+              >
+                <LogOut className="h-5 w-5" />
+              </button>
+              <button className="rounded-2xl bg-white p-3 shadow-sm border border-orange-100 text-stone-700 hover:bg-stone-50">
+                <Search className="h-5 w-5" />
+              </button>
+            </div>
           </header>
 
           <div className="mx-auto w-full max-w-5xl pb-28 lg:pb-6">
-            <div className="mb-4 hidden gap-2 overflow-x-auto rounded-[24px] bg-white/80 p-2 shadow-sm ring-1 ring-orange-100 md:flex">
+            <div className="mb-4 hidden gap-2 overflow-x-auto rounded-[24px] bg-white/80 p-2 shadow-sm border border-orange-150 md:flex">
               {navItems.map(({ key, label, icon: Icon }) => {
                 const active = tab === key;
                 return (
@@ -142,7 +164,7 @@ export default function App() {
               })}
             </div>
 
-            <main className="rounded-[36px] bg-white/75 p-3 shadow-[0_16px_40px_rgba(122,62,25,0.08)] ring-1 ring-orange-100/80 backdrop-blur sm:p-4 lg:p-6">
+            <main className="rounded-[36px] bg-white/75 p-3 shadow-[0_16px_40px_rgba(122,62,25,0.08)] border border-orange-100/80 backdrop-blur sm:p-4 lg:p-6">
               {page}
             </main>
           </div>
@@ -151,5 +173,27 @@ export default function App() {
 
       <BottomNav tab={tab} setTab={setTab} />
     </div>
+  );
+}
+
+function AppContent() {
+  const { role } = useApp();
+
+  if (role === null) {
+    return <LoginScreen />;
+  }
+
+  if (role === "staff") {
+    return <StaffPortal />;
+  }
+
+  return <VolunteerPortal />;
+}
+
+export default function App() {
+  return (
+    <AppProvider>
+      <AppContent />
+    </AppProvider>
   );
 }
