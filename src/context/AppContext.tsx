@@ -111,8 +111,9 @@ interface AppContextType {
   claimVolunteerTaskPayout: () => void;
   // Citizen Proposal actions
   proposeProject: (title: string, location: string, description: string, category: string) => void;
-  approveProjectProposal: (id: string) => void;
+  approveProjectProposal: (id: string, targetFund: number) => void;
   rejectProjectProposal: (id: string) => void;
+  updateProjectTargetFund: (id: string, newTarget: number) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -562,7 +563,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     setProposals((prev) => [newProposal, ...prev]);
   };
 
-  const approveProjectProposal = (id: string) => {
+  const approveProjectProposal = (id: string, targetFund: number = 10000000) => {
     let proposalToApprove: ProjectProposal | null = null;
     
     setProposals((prev) =>
@@ -584,12 +585,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       };
       
       const newProject: CommunityProject = {
-        id: "p" + Math.floor(100 + Math.random() * 900).toString(),
+        id: p.id, // using proposal ID for edit linkage
         title: p.title,
         location: p.location,
         volunteers: 1, // proposer is the first registered volunteer!
         donated: 0,
-        target: 10000000,
+        target: targetFund,
         emoji: emojiMap[p.category] || "🌊",
         joined: true,
       };
@@ -601,6 +602,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const rejectProjectProposal = (id: string) => {
     setProposals((prev) =>
       prev.map((p) => (p.id === id ? { ...p, status: "rejected" } : p))
+    );
+  };
+
+  const updateProjectTargetFund = (id: string, newTarget: number) => {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, target: newTarget } : p))
     );
   };
 
@@ -638,6 +645,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         proposeProject,
         approveProjectProposal,
         rejectProjectProposal,
+        updateProjectTargetFund,
       }}
     >
       {children}
