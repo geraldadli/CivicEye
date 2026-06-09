@@ -13,7 +13,11 @@ import SectionCard from "../components/common/SectionCard";
 import StatusPill from "../components/common/StatusPill";
 import { useApp } from "../context/AppContext";
 
-export default function HomePage() {
+export default function HomePage({
+  setTab,
+}: {
+  setTab?: (tab: "home" | "forum" | "scan" | "community" | "store") => void;
+}) {
   const { user, reports } = useApp();
   const points = user?.points ?? 1250;
   const rank = useMemo(() => getRank(points), [points]);
@@ -92,12 +96,13 @@ export default function HomePage() {
 
       <section className="grid grid-cols-3 gap-3">
         {[
-          { icon: <ClipboardList className="h-5 w-5" />, label: "Laporan" },
-          { icon: <MessageSquareText className="h-5 w-5" />, label: "Forum" },
-          { icon: <Medal className="h-5 w-5" />, label: "Rewards" },
+          { icon: <ClipboardList className="h-5 w-5" />, label: "Laporan", tabKey: "scan" },
+          { icon: <MessageSquareText className="h-5 w-5" />, label: "Forum", tabKey: "forum" },
+          { icon: <Medal className="h-5 w-5" />, label: "Rewards", tabKey: "store" },
         ].map((item) => (
           <button
             key={item.label}
+            onClick={() => setTab?.(item.tabKey as any)}
             className="flex flex-col items-center gap-2 rounded-[24px] bg-white p-4 text-stone-800 shadow-[0_14px_30px_rgba(122,62,25,0.08)] ring-1 ring-orange-100 transition hover:-translate-y-0.5"
           >
             <div className="rounded-2xl bg-orange-100 p-3 text-orange-700">

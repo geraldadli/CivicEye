@@ -40,8 +40,8 @@ function VolunteerPortal() {
   const rank = useMemo(() => getRank(points), [points]);
 
   const page = {
-    home: <HomePage />,
-    scan: <ReportPage />,
+    home: <HomePage setTab={setTab} />,
+    scan: <ReportPage setTab={setTab} />,
     forum: <ForumPage />,
     community: <CommunityPage />,
     store: <StorePage />,
@@ -64,23 +64,38 @@ function VolunteerPortal() {
               </p>
             </div>
 
-            <div className="mt-6 rounded-[28px] bg-gradient-to-br from-orange-500 via-orange-400 to-amber-300 p-4 text-white shadow-lg shadow-orange-200">
-              <p className="text-xs uppercase tracking-[0.2em] text-orange-50/80">
-                Civic Points
-              </p>
-              <div className="mt-2 flex items-end justify-between gap-3">
+            <div className="mt-6 rounded-[28px] bg-gradient-to-br from-orange-500 via-orange-400 to-amber-300 p-5 text-white shadow-lg shadow-orange-200">
+              <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-3xl font-extrabold">{points.toLocaleString("id-ID")}</p>
-                  <p className="text-sm text-orange-50/90">{rank.current}</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-orange-50/80">
+                    Civic Points
+                  </p>
+                  <p className="text-3xl font-extrabold mt-1">{points.toLocaleString("id-ID")}</p>
+                  <p className="text-xs text-orange-50/90 font-medium mt-0.5">{rank.current}</p>
                 </div>
-                <div className="rounded-2xl bg-white/15 px-3 py-2 text-right">
-                  <p className="text-xs text-orange-50/80">Next</p>
-                  <p className="font-semibold">{rank.next}</p>
+                <div className="rounded-2xl bg-white/15 px-3.5 py-2 text-right">
+                  <p className="text-[10px] text-orange-50/85">Next Rank</p>
+                  <p className="font-bold text-xs mt-0.5">{rank.next}</p>
                 </div>
               </div>
-              <p className="mt-3 text-xs text-orange-50/90">
-                {rank.nextPointsNeeded} poin lagi menuju {rank.next}
-              </p>
+
+              <div className="mt-4 pt-3 border-t border-white/20 flex justify-between items-center">
+                <div>
+                  <p className="text-[9px] uppercase tracking-[0.2em] text-orange-50/80">
+                    Dompet Civic
+                  </p>
+                  <p className="text-base font-extrabold mt-0.5">
+                    {new Intl.NumberFormat("id-ID", {
+                      style: "currency",
+                      currency: "IDR",
+                      maximumFractionDigits: 0,
+                    }).format(user?.cashBalance ?? 0)}
+                  </p>
+                </div>
+                <p className="text-[10px] text-orange-50/90 font-medium">
+                  {rank.nextPointsNeeded} pts to {rank.next}
+                </p>
+              </div>
             </div>
 
             <nav className="mt-6 space-y-2">

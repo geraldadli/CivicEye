@@ -41,10 +41,34 @@ export interface FieldTeam {
   currentTaskId?: string;
 }
 
+export interface CommunityProject {
+  id: string;
+  title: string;
+  location: string;
+  volunteers: number;
+  donated: number;
+  target: number;
+  emoji: string;
+  joined?: boolean;
+}
+
+export interface VolunteerTask {
+  id: string;
+  location: string;
+  issue: string;
+  distanceKm: number;
+  etaMin: number;
+  payout: number;
+  rating: number;
+  completedTasks: number;
+  status: "available" | "accepted" | "uploaded" | "completed" | "claimed";
+}
+
 interface User {
   name: string;
   email: string;
   points: number;
+  cashBalance: number;
 }
 
 interface AppContextType {
@@ -52,6 +76,8 @@ interface AppContextType {
   user: User | null;
   reports: ReportItemExtended[];
   teams: FieldTeam[];
+  projects: CommunityProject[];
+  volunteerTask: VolunteerTask;
   login: (email: string, role: "volunteer" | "staff") => void;
   logout: () => void;
   addReport: (title: string, location: string, details: string) => void;
@@ -64,6 +90,14 @@ interface AppContextType {
   rejectReport: (id: string, reason: string) => void;
   addPoints: (amount: number) => void;
   updateTeamStatus: (teamName: string, status: "Available" | "Active" | "Offline") => void;
+  // Volunteer interactions
+  donateToProject: (id: string, pointsAmount: number) => boolean;
+  joinProject: (id: string) => boolean;
+  redeemVoucher: (pointsAmount: number) => boolean;
+  acceptVolunteerTask: () => void;
+  uploadVolunteerTaskPhoto: () => void;
+  completeVolunteerTask: () => void;
+  claimVolunteerTaskPayout: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -187,6 +221,23 @@ const INITIAL_TEAMS: FieldTeam[] = [
   { name: "Team C", members: ["Faris", "Guntur", "Hadi"], status: "Offline" },
 ];
 
+const INITIAL_PROJECTS: CommunityProject[] = [
+  { id: "p1", title: "Pembersihan Kali Ciliwung", location: "Kec. Beji, Depok", volunteers: 47, donated: 13000000, target: 20000000, emoji: "🌊", joined: false },
+  { id: "p2", title: "Pembersihan Kali Anggrek", location: "Kec. Kemanggisan", volunteers: 50, donated: 15000000, target: 25000000, emoji: "🌊", joined: false },
+];
+
+const INITIAL_TASK: VolunteerTask = {
+  id: "t1",
+  location: "Jl. Margonda Raya No.45, Depok",
+  issue: "Sampah Berserakan",
+  distanceKm: 1.2,
+  etaMin: 8,
+  payout: 45000,
+  rating: 4.8,
+  completedTasks: 127,
+  status: "available",
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -207,6 +258,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const [teams, setTeams] = useState<FieldTeam[]>(() => {
     const saved = localStorage.getItem("civiceye_teams");
     return saved ? JSON.parse(saved) : INITIAL_TEAMS;
+  });
+
+  const [projects, setProjects] = useState<CommunityProject[]>(() => {
+    const saved = localStorage.getItem("civiceye_projects");
+    return saved ? JSON.parse(saved) : INITIAL_PROJECTS;
+  });
+
+  const [volunteerTask, setVolunteerTask] = useState<VolunteerTask>(() => {
+    const saved = localStorage.getItem("civiceye_vtask");
+    return saved ? JSON.parse(saved) : INITIAL_TASK;
   });
 
   useEffect(() => {
@@ -233,6 +294,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.setItem("civiceye_teams", JSON.stringify(teams));
   }, [teams]);
 
+  useEffect(() => {
+    localStorage.setItem("civiceye_projects", JSON.stringify(projects));
+  }, [projects]);
+
+  useEffect(() => {
+    localStorage.setItem("civiceye_vtask", JSON.stringify(volunteerTask));
+  }, [volunteerTask]);
+
   const login = (email: string, userRole: "volunteer" | "staff") => {
     const name = email.split("@")[0];
     const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
@@ -240,6 +309,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       name: capitalized,
       email: email,
       points: userRole === "volunteer" ? 1250 : 0,
+      cashBalance: userRole === "volunteer" ? 0 : 0,
     };
     setUser(mockUser);
     setRole(userRole);
@@ -269,7 +339,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     setReports((prev) => [newReport, ...prev]);
 
-    // Award volunteer 50 points for submitting a report
     if (role === "volunteer") {
       addPoints(50);
     }
@@ -279,7 +348,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     setReports((prev) =>
       prev.map((rep) => {
         if (rep.id === id) {
-          // If the status goes to 'Selesai' and it was not finished before, award 150 points to the volunteer!
           if (status === "Selesai" && rep.status !== "Selesai") {
             addPoints(150);
           }
@@ -304,7 +372,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       })
     );
 
-    // Update field team status to Active
     setTeams((prev) =>
       prev.map((team) => {
         if (team.name === teamName) {
@@ -368,6 +435,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   };
 
+  // Volunteer actions
+  const donateToProject = (projectId: string, pointsAmount: number) => {
+    if (!user || user.points < pointsAmount) return false;
+    setUser((prev) => (prev ? { ...prev, points: prev.points - pointsAmount } : null));
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === projectId ? { ...p, donated: p.donated + pointsAmount * 100 } : p
+      )
+    );
+    return true;
+  };
+
+  const joinProject = (projectId: string) => {
+    let success = false;
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id === projectId && !p.joined) {
+          success = true;
+          return { ...p, volunteers: p.volunteers + 1, joined: true };
+        }
+        return p;
+      })
+    );
+
+    if (success) {
+      addPoints(50);
+      return true;
+    }
+    return false;
+  };
+
+  const redeemVoucher = (pointsAmount: number) => {
+    if (!user || user.points < pointsAmount) return false;
+    setUser((prev) => (prev ? { ...prev, points: prev.points - pointsAmount } : null));
+    return true;
+  };
+
+  const acceptVolunteerTask = () => {
+    setVolunteerTask((prev) => ({ ...prev, status: "accepted" }));
+  };
+
+  const uploadVolunteerTaskPhoto = () => {
+    setVolunteerTask((prev) => ({ ...prev, status: "uploaded" }));
+  };
+
+  const completeVolunteerTask = () => {
+    setVolunteerTask((prev) => ({ ...prev, status: "completed" }));
+  };
+
+  const claimVolunteerTaskPayout = () => {
+    if (volunteerTask.status !== "completed") return;
+    setVolunteerTask((prev) => ({ ...prev, status: "claimed" }));
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            cashBalance: prev.cashBalance + volunteerTask.payout,
+            points: prev.points + 100,
+          }
+        : null
+    );
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -375,6 +505,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         user,
         reports,
         teams,
+        projects,
+        volunteerTask,
         login,
         logout,
         addReport,
@@ -387,6 +519,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         rejectReport,
         addPoints,
         updateTeamStatus,
+        // Volunteer interactions
+        donateToProject,
+        joinProject,
+        redeemVoucher,
+        acceptVolunteerTask,
+        uploadVolunteerTaskPhoto,
+        completeVolunteerTask,
+        claimVolunteerTaskPayout,
       }}
     >
       {children}
