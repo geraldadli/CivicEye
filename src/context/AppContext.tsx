@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { supabase } from "@/utils/supabaseClient";
 
 export type Role = "volunteer" | "staff" | null;
 
@@ -74,11 +75,24 @@ export interface ProjectProposal {
   status: "pending" | "approved" | "rejected";
 }
 
-interface User {
+export interface User {
   name: string;
   email: string;
   points: number;
   cashBalance: number;
+  phone?: string;
+  nik?: string;
+  address?: string;
+  staffId?: string;
+  department?: string;
+}
+
+export interface TransactionItem {
+  id: string;
+  type: "points" | "cash";
+  amount: number;
+  description: string;
+  time: string;
 }
 
 interface AppContextType {
@@ -89,160 +103,53 @@ interface AppContextType {
   projects: CommunityProject[];
   volunteerTask: VolunteerTask;
   proposals: ProjectProposal[];
-  login: (email: string, role: "volunteer" | "staff", displayName?: string) => void;
-  logout: () => void;
-  addReport: (title: string, location: string, details: string) => void;
-  updateReportStatus: (id: string, status: ReportStatus) => void;
-  assignReportTeam: (id: string, team: string) => void;
-  assignReportSchedule: (id: string, schedule: string) => void;
-  addStaffChat: (reportId: string, text: string) => void;
-  updateReportNotes: (id: string, notes: string) => void;
-  updateTaskAssignmentStatus: (reportId: string, status: string) => void;
-  rejectReport: (id: string, reason: string) => void;
-  addPoints: (amount: number) => void;
-  updateTeamStatus: (teamName: string, status: "Available" | "Active" | "Offline") => void;
+  transactions: TransactionItem[];
+  loading: boolean;
+  login: (email: string, role: "volunteer" | "staff", password?: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  registerUser: (data: {
+    fullName: string;
+    email: string;
+    phone: string;
+    role: "volunteer" | "staff";
+    password?: string;
+    nik?: string;
+    address?: string;
+    staffId?: string;
+    department?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
+  addReport: (title: string, location: string, details: string, photoFile?: File) => Promise<void>;
+  updateReportStatus: (id: string, status: ReportStatus) => Promise<void>;
+  assignReportTeam: (id: string, team: string) => Promise<void>;
+  assignReportSchedule: (id: string, schedule: string) => Promise<void>;
+  addStaffChat: (reportId: string, text: string) => Promise<void>;
+  updateReportNotes: (id: string, notes: string) => Promise<void>;
+  updateTaskAssignmentStatus: (reportId: string, status: string) => Promise<void>;
+  rejectReport: (id: string, reason: string) => Promise<void>;
+  addPoints: (amount: number) => Promise<void>;
+  updateTeamStatus: (teamName: string, status: "Available" | "Active" | "Offline") => Promise<void>;
   // Volunteer interactions
-  donateToProject: (id: string, pointsAmount: number) => boolean;
-  joinProject: (id: string) => boolean;
-  redeemVoucher: (pointsAmount: number) => boolean;
-  acceptVolunteerTask: () => void;
-  uploadVolunteerTaskPhoto: () => void;
-  completeVolunteerTask: () => void;
-  claimVolunteerTaskPayout: () => void;
+  donateToProject: (id: string, pointsAmount: number) => Promise<boolean>;
+  joinProject: (id: string) => Promise<boolean>;
+  redeemVoucher: (pointsAmount: number, voucherId: string, title: string) => Promise<string | false>;
+  acceptVolunteerTask: () => Promise<void>;
+  uploadVolunteerTaskPhoto: () => Promise<void>;
+  completeVolunteerTask: () => Promise<void>;
+  claimVolunteerTaskPayout: () => Promise<void>;
   // Citizen Proposal actions
-  proposeProject: (title: string, location: string, description: string, category: string) => void;
-  approveProjectProposal: (id: string, targetFund: number) => void;
-  rejectProjectProposal: (id: string) => void;
-  updateProjectTargetFund: (id: string, newTarget: number) => void;
+  proposeProject: (title: string, location: string, description: string, category: string) => Promise<void>;
+  approveProjectProposal: (id: string, targetFund: number) => Promise<void>;
+  rejectProjectProposal: (id: string) => Promise<void>;
+  updateProjectTargetFund: (id: string, newTarget: number) => Promise<void>;
+  updateProfile: (fullName: string) => Promise<boolean>;
+  cancelTeamAssignment: (reportId: string, teamName: string) => Promise<void>;
+  createTeam: (name: string, members: string[]) => Promise<boolean>;
+  updateTeamMembers: (teamName: string, members: string[]) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const INITIAL_REPORTS: ReportItemExtended[] = [
-  {
-    id: "10245",
-    title: "Sampah Berserakan",
-    location: "Jl. Anggrek",
-    time: "2 jam lalu",
-    status: "New",
-    citizenName: "David",
-    citizenProfile: "https://profiletye.com/David's profile",
-    photoUrl: "/images/trash_debris.png",
-    details: "Sampah plastik menumpuk di pinggir jalan raya mengganggu lalu lintas dan mengeluarkan bau menyengat.",
-    assignedTeam: "",
-    assignedSchedule: "",
-    notes: "",
-    chat: [],
-    taskAssignmentStatus: "Available",
-  },
-  {
-    id: "10246",
-    title: "Sampah Berserakan",
-    location: "Jl. Anggrek",
-    time: "2 jam lalu",
-    status: "New",
-    citizenName: "David",
-    citizenProfile: "https://profiletye.com/David's profile",
-    photoUrl: "/images/trash_debris.png",
-    details: "Tumpukan plastik belanjaan dan styrofoam menyumbat saluran air di trotoar depan halte bus.",
-    assignedTeam: "",
-    assignedSchedule: "",
-    notes: "",
-    chat: [],
-    taskAssignmentStatus: "Available",
-  },
-  {
-    id: "10247",
-    title: "Sampah Berserakan",
-    location: "Jl. Anggrek",
-    time: "2 jam lalu",
-    status: "Processing",
-    citizenName: "David",
-    citizenProfile: "https://profiletye.com/David's profile",
-    photoUrl: "/images/trash_debris.png",
-    details: "Puing-puing sisa konstruksi dibuang sembarangan di persimpangan jalan.",
-    assignedTeam: "Team A",
-    assignedSchedule: "Schedule for Friday",
-    notes: "Tim A sedang dalam perjalanan membawa truk pengangkut.",
-    chat: [
-      {
-        id: "c1",
-        sender: "Staff David",
-        text: "Tim A sudah bersiap berangkat menuju lokasi.",
-        time: "1 jam lalu",
-      },
-    ],
-    taskAssignmentStatus: "Available",
-  },
-  {
-    id: "10248",
-    title: "Sampah Berserakan",
-    location: "Jl. Anggrek",
-    time: "2 jam lalu",
-    status: "Needs Review",
-    citizenName: "David",
-    citizenProfile: "https://profiletye.com/David's profile",
-    photoUrl: "/images/trash_debris.png",
-    details: "Sampah basah dan botol kaca berserakan setelah pasar kaget bubar.",
-    assignedTeam: "Team A",
-    assignedSchedule: "Schedule for Friday",
-    notes: "Pembersihan selesai dilakukan. Menunggu verifikasi akhir dari pengawas wilayah.",
-    chat: [],
-    taskAssignmentStatus: "Available",
-  },
-  {
-    id: "10249",
-    title: "Daun Berserakan",
-    location: "Taman Anggrek",
-    time: "Kemarin",
-    status: "Selesai",
-    citizenName: "David",
-    citizenProfile: "https://profiletye.com/David's profile",
-    photoUrl: "/images/trash_debris.png",
-    details: "Guguran daun kering menutupi area bermain anak-anak dan taman hias.",
-    assignedTeam: "Team B",
-    assignedSchedule: "Schedule for Yesterday",
-    notes: "Masalah selesai diatasi dengan kerja bakti warga dan bantuan petugas kebersihan dinas terkait.",
-    chat: [
-      {
-        id: "c2",
-        sender: "Staff David",
-        text: "Lokasi sudah bersih, silakan ditutup tiketnya.",
-        time: "Kemarin",
-      },
-    ],
-    taskAssignmentStatus: "Available",
-  },
-  {
-    id: "10250",
-    title: "Lampu Jalan Mati",
-    location: "Jl. Melati",
-    time: "5 jam lalu",
-    status: "New",
-    citizenName: "Budi",
-    citizenProfile: "https://profiletye.com/Budi's profile",
-    photoUrl: "/images/trash_debris.png",
-    details: "Lampu penerangan utama jalan padam sepanjang 50 meter. Gelap gulita di malam hari.",
-    assignedTeam: "",
-    assignedSchedule: "",
-    notes: "",
-    chat: [],
-    taskAssignmentStatus: "Available",
-  },
-];
-
-const INITIAL_TEAMS: FieldTeam[] = [
-  { name: "Team A", members: ["Andi", "Bayu", "Candra"], status: "Active" },
-  { name: "Team B", members: ["Doni", "Eko"], status: "Available" },
-  { name: "Team C", members: ["Faris", "Guntur", "Hadi"], status: "Offline" },
-];
-
-const INITIAL_PROJECTS: CommunityProject[] = [
-  { id: "p1", title: "Pembersihan Kali Ciliwung", location: "Kec. Beji, Depok", volunteers: 47, donated: 13000000, target: 20000000, emoji: "🌊", joined: false },
-  { id: "p2", title: "Pembersihan Kali Anggrek", location: "Kec. Kemanggisan", volunteers: 50, donated: 15000000, target: 25000000, emoji: "🌊", joined: false },
-];
-
-const INITIAL_TASK: VolunteerTask = {
+const DEFAULT_VOLUNTEER_TASK: Omit<VolunteerTask, "status"> = {
   id: "t1",
   location: "Jl. Margonda Raya No.45, Depok",
   issue: "Sampah Berserakan",
@@ -251,367 +158,1226 @@ const INITIAL_TASK: VolunteerTask = {
   payout: 45000,
   rating: 4.8,
   completedTasks: 127,
-  status: "available",
 };
-
-const INITIAL_PROPOSALS: ProjectProposal[] = [
-  {
-    id: "prop1",
-    title: "Penanaman Pohon Teduh",
-    location: "Taman Hias Anggrek",
-    description: "Mengusulkan penanaman 20 pohon pelindung untuk mengurangi polusi udara dan membuat taman bermain anak lebih rindang.",
-    category: "Greenery",
-    proposerName: "Warga Budi",
-    status: "pending",
-  },
-  {
-    id: "prop2",
-    title: "Kerja Bakti Cat Ulang JPO",
-    location: "Jl. Melati Raya",
-    description: "Jembatan penyebrangan orang (JPO) terlihat kusam dan penuh coretan liar. Mengajak warga kerja bakti mengecat ulang.",
-    category: "Repair",
-    proposerName: "David",
-    status: "pending",
-  },
-];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [role, setRole] = useState<Role>(() => {
-    return (localStorage.getItem("civiceye_role") as Role) || null;
+  const [role, setRole] = useState<Role>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [reports, setReports] = useState<ReportItemExtended[]>([]);
+  const [teams, setTeams] = useState<FieldTeam[]>([]);
+  const [projects, setProjects] = useState<CommunityProject[]>([]);
+  const [volunteerTask, setVolunteerTask] = useState<VolunteerTask>({
+    ...DEFAULT_VOLUNTEER_TASK,
+    status: "available",
   });
+  const [proposals, setProposals] = useState<ProjectProposal[]>([]);
+  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem("civiceye_user");
-    return saved ? JSON.parse(saved) : null;
-  });
+  // Fetch all tables from InsForge Database
+  const fetchData = async (activeUserId: string, activeRole?: Role) => {
+    const userRole = activeRole !== undefined ? activeRole : role;
+    try {
+      // 0. Fetch Profile details to sync points & cash wallet balance
+      const { data: profile, error: profileErr } = await supabase.database
+        .from("profiles")
+        .select("*")
+        .eq("id", activeUserId)
+        .maybeSingle();
 
-  const [reports, setReports] = useState<ReportItemExtended[]>(() => {
-    const saved = localStorage.getItem("civiceye_reports");
-    return saved ? JSON.parse(saved) : INITIAL_REPORTS;
-  });
+      if (!profileErr && profile) {
+        setUser((prev) => ({
+          name: profile.full_name,
+          email: profile.email || prev?.email || "",
+          points: profile.points,
+          cashBalance: profile.cash_balance,
+          phone: profile.phone || "",
+          nik: profile.nik || "",
+          address: profile.address || "",
+          staffId: profile.staff_id || "",
+          department: profile.department || "",
+        }));
+      }
 
-  const [teams, setTeams] = useState<FieldTeam[]>(() => {
-    const saved = localStorage.getItem("civiceye_teams");
-    return saved ? JSON.parse(saved) : INITIAL_TEAMS;
-  });
+      // 1. Fetch Reports
+      const { data: reportsData, error: reportsErr } = await supabase.database
+        .from("reports")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (reportsErr) throw reportsErr;
 
-  const [projects, setProjects] = useState<CommunityProject[]>(() => {
-    const saved = localStorage.getItem("civiceye_projects");
-    return saved ? JSON.parse(saved) : INITIAL_PROJECTS;
-  });
+      // 2. Fetch Teams
+      const { data: teamsData, error: teamsErr } = await supabase.database
+        .from("teams")
+        .select("*")
+        .order("name", { ascending: true });
+      if (teamsErr) throw teamsErr;
 
-  const [volunteerTask, setVolunteerTask] = useState<VolunteerTask>(() => {
-    const saved = localStorage.getItem("civiceye_vtask");
-    return saved ? JSON.parse(saved) : INITIAL_TASK;
-  });
+      // 3. Fetch Projects
+      const { data: projectsData, error: projectsErr } = await supabase.database
+        .from("projects")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (projectsErr) throw projectsErr;
 
-  const [proposals, setProposals] = useState<ProjectProposal[]>(() => {
-    const saved = localStorage.getItem("civiceye_proposals");
-    return saved ? JSON.parse(saved) : INITIAL_PROPOSALS;
-  });
+      // 4. Fetch Proposals
+      const { data: proposalsData, error: proposalsErr } = await supabase.database
+        .from("proposals")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (proposalsErr) throw proposalsErr;
 
-  useEffect(() => {
-    if (role) {
-      localStorage.setItem("civiceye_role", role);
-    } else {
-      localStorage.removeItem("civiceye_role");
+      // 5. Fetch Chats
+      const { data: chatsData, error: chatsErr } = await supabase.database
+        .from("report_chats")
+        .select("*")
+        .order("created_at", { ascending: true });
+      if (chatsErr) throw chatsErr;
+
+      // 6. Fetch project memberships to check which ones the user joined
+      let joinedIds = new Set<string>();
+      if (userRole === "volunteer") {
+        const { data: memberProjects } = await supabase.database
+          .from("project_members")
+          .select("project_id")
+          .eq("user_id", activeUserId);
+        joinedIds = new Set((memberProjects || []).map((mp: any) => mp.project_id));
+      }
+
+      // 7. Fetch or Provision Volunteer Task
+      if (userRole === "volunteer") {
+        const { data: vTask, error: vTaskErr } = await supabase.database
+          .from("volunteer_tasks")
+          .select("*")
+          .eq("user_id", activeUserId)
+          .maybeSingle();
+
+        if (vTaskErr) throw vTaskErr;
+
+        if (vTask) {
+          setVolunteerTask({
+            id: vTask.id,
+            location: vTask.location,
+            issue: vTask.issue,
+            distanceKm: vTask.distance_km,
+            etaMin: vTask.eta_min,
+            payout: vTask.payout,
+            rating: vTask.rating,
+            completedTasks: vTask.completed_tasks,
+            status: vTask.status as any,
+          });
+        } else {
+          // Create initial volunteer task for this user in the database
+          const defaultTask = {
+            id: "t_" + Math.floor(1000 + Math.random() * 9000).toString(),
+            location: DEFAULT_VOLUNTEER_TASK.location,
+            issue: DEFAULT_VOLUNTEER_TASK.issue,
+            distance_km: DEFAULT_VOLUNTEER_TASK.distanceKm,
+            eta_min: DEFAULT_VOLUNTEER_TASK.etaMin,
+            payout: DEFAULT_VOLUNTEER_TASK.payout,
+            rating: DEFAULT_VOLUNTEER_TASK.rating,
+            completed_tasks: DEFAULT_VOLUNTEER_TASK.completedTasks,
+            status: "available",
+            user_id: activeUserId,
+          };
+
+          const { data: newVTask } = await supabase.database
+            .from("volunteer_tasks")
+            .insert([defaultTask])
+            .select()
+            .single();
+
+          if (newVTask) {
+            setVolunteerTask({
+              id: newVTask.id,
+              location: newVTask.location,
+              issue: newVTask.issue,
+              distanceKm: newVTask.distance_km,
+              etaMin: newVTask.eta_min,
+              payout: newVTask.payout,
+              rating: newVTask.rating,
+              completedTasks: newVTask.completed_tasks,
+              status: newVTask.status as any,
+            });
+          }
+        }
+      }
+
+      // Map chats onto reports
+      const mappedReports: ReportItemExtended[] = (reportsData || []).map((rep: any) => {
+        const repChats = (chatsData || [])
+          .filter((c: any) => c.report_id === rep.id)
+          .map((c: any) => ({
+            id: c.id,
+            sender: c.sender,
+            text: c.text,
+            time: c.time,
+          }));
+        return {
+          id: rep.id,
+          title: rep.title,
+          location: rep.location,
+          time: rep.time,
+          status: rep.status as ReportStatus,
+          citizenName: rep.citizen_name,
+          citizenProfile: `https://profiletye.com/${rep.citizen_name}'s profile`,
+          photoUrl: rep.photo_url || "/images/trash_debris.png",
+          details: rep.details || "",
+          assignedTeam: rep.assigned_team || "",
+          assignedSchedule: rep.assigned_schedule || "",
+          notes: rep.notes || "",
+          taskAssignmentStatus: rep.task_assignment_status || "Available",
+          rejectReason: rep.reject_reason || "",
+          chat: repChats,
+        };
+      });
+
+      // Map projects
+      const mappedProjects: CommunityProject[] = (projectsData || []).map((p: any) => ({
+        id: p.id,
+        title: p.title,
+        location: p.location,
+        volunteers: p.volunteers,
+        donated: p.donated,
+        target: p.target,
+        emoji: p.emoji,
+        joined: joinedIds.has(p.id),
+      }));
+
+      // Map proposals
+      const mappedProposals: ProjectProposal[] = (proposalsData || []).map((p: any) => ({
+        id: p.id,
+        title: p.title,
+        location: p.location,
+        description: p.description,
+        category: p.category,
+        proposerName: p.proposer_name,
+        status: p.status as "pending" | "approved" | "rejected",
+      }));
+
+      // 8. Fetch Transactions
+      let mappedTransactions: TransactionItem[] = [];
+      console.log("fetchData [transactions] - userRole check:", userRole, "activeUserId:", activeUserId);
+      if (userRole === "volunteer") {
+        console.log("fetchData [transactions] - fetching transactions from database...");
+        let { data: txData, error: txErr } = await supabase.database
+          .from("transactions")
+          .select("*")
+          .eq("user_id", activeUserId)
+          .order("created_at", { ascending: false });
+
+        if (txErr) {
+          console.error("fetchData [transactions] - database error:", txErr);
+          throw txErr;
+        }
+
+        console.log("fetchData [transactions] - raw database transactions:", txData);
+
+        // Auto-seed/backfill initial registration transaction if volunteer has points but no transactions logged yet
+        if ((!txData || txData.length === 0) && profile && (profile.points || 0) > 0) {
+          const initialPoints = profile.points || 1250;
+          console.log("fetchData [transactions] - Auto-seeding initial points:", initialPoints);
+          await supabase.database.from("transactions").insert([{
+            user_id: activeUserId,
+            type: "points",
+            amount: initialPoints,
+            description: "Pendaftaran Awal",
+          }]);
+          
+          // Re-fetch transactions
+          const { data: refetched } = await supabase.database
+            .from("transactions")
+            .select("*")
+            .eq("user_id", activeUserId)
+            .order("created_at", { ascending: false });
+          if (refetched) {
+            txData = refetched;
+            console.log("fetchData [transactions] - refetched transactions:", txData);
+          }
+        }
+
+        mappedTransactions = (txData || []).map((t: any) => {
+          let timeStr = "";
+          let dateStr = "";
+          try {
+            const date = new Date(t.created_at);
+            timeStr = date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+            dateStr = date.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+          } catch (dateErr) {
+            console.error("fetchData [transactions] - date parsing exception for:", t.created_at, dateErr);
+            try {
+              const date = new Date(t.created_at);
+              timeStr = date.toTimeString().split(' ')[0].slice(0, 5);
+              dateStr = date.toDateString();
+            } catch (fallbackErr) {
+              timeStr = "";
+              dateStr = "Unknown Date";
+            }
+          }
+          return {
+            id: t.id,
+            type: t.type as "points" | "cash",
+            amount: t.amount,
+            description: t.description,
+            time: dateStr && timeStr ? `${dateStr}, ${timeStr}` : (dateStr || "Unknown Date"),
+          };
+        });
+        console.log("fetchData [transactions] - mapped transactions:", mappedTransactions);
+      } else {
+        console.log("fetchData [transactions] - userRole is not volunteer, skipping transaction fetch.");
+      }
+
+      setReports(mappedReports);
+      setTeams(teamsData || []);
+      setProjects(mappedProjects);
+      setProposals(mappedProposals);
+      setTransactions(mappedTransactions);
+    } catch (err) {
+      console.error("Error fetching database tables:", err);
     }
-  }, [role]);
+  };
 
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem("civiceye_user", JSON.stringify(user));
-    } else {
-      localStorage.removeItem("civiceye_user");
+  const addTransaction = async (userId: string, type: "points" | "cash", amount: number, description: string) => {
+    try {
+      const { error } = await supabase.database.from("transactions").insert([{
+        user_id: userId,
+        type,
+        amount,
+        description,
+      }]);
+      if (error) {
+        console.error("Error inserting transaction:", error);
+      }
+    } catch (err) {
+      console.error("Exception in addTransaction:", err);
     }
-  }, [user]);
+  };
+
+  const handleAuthSession = async (authUser: any, selectedRole?: Role, registeredName?: string) => {
+    try {
+      setUserId(authUser.id);
+      
+      const { data: profile, error } = await supabase.database
+        .from("profiles")
+        .select("*")
+        .eq("id", authUser.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error fetching user profile:", error);
+      }
+
+      const roleFallback = selectedRole || (authUser.email?.includes("staff") ? "staff" : "volunteer");
+      let activeProfile = profile;
+
+      if (!activeProfile) {
+        console.log("Profile not found in database for user. Creating default profile...");
+        const defaultPoints = roleFallback === "volunteer" ? 1250 : 0;
+        const defaultName = registeredName || authUser.user_metadata?.name || authUser.user_metadata?.full_name || authUser.name || authUser.email?.split("@")[0] || "User";
+
+        const newProfile = {
+          id: authUser.id,
+          full_name: defaultName,
+          role: roleFallback,
+          phone: authUser.phone || "",
+          email: authUser.email || "",
+          nik: roleFallback === "volunteer" ? "1234567890123456" : "",
+          address: roleFallback === "volunteer" ? "Jl. Margonda Raya No. 45" : "",
+          staff_id: roleFallback === "staff" ? "STF-99" : "",
+          department: roleFallback === "staff" ? "Dinas Lingkungan Hidup" : "",
+          points: defaultPoints,
+          cash_balance: 0,
+        };
+
+        const { data: inserted, error: insertErr } = await supabase.database
+          .from("profiles")
+          .insert([newProfile])
+          .select()
+          .maybeSingle();
+
+        if (insertErr) {
+          console.error("Error creating default profile in database:", insertErr);
+        } else if (inserted) {
+          activeProfile = inserted;
+          // Record initial transaction in ledger
+          if (roleFallback === "volunteer") {
+            await addTransaction(authUser.id, "points", defaultPoints, "Pendaftaran Awal");
+          }
+        }
+      }
+
+      if (activeProfile) {
+        setUser({
+          name: activeProfile.full_name,
+          email: authUser.email || "",
+          points: activeProfile.points,
+          cashBalance: activeProfile.cash_balance,
+          phone: activeProfile.phone || "",
+          nik: activeProfile.nik || "",
+          address: activeProfile.address || "",
+          staffId: activeProfile.staff_id || "",
+          department: activeProfile.department || "",
+        });
+        setRole(activeProfile.role as Role);
+      } else {
+        // Fallback profile if record is not found and insert failed
+        setUser({
+          name: registeredName || authUser.user_metadata?.name || authUser.user_metadata?.full_name || authUser.name || authUser.email?.split("@")[0] || "User",
+          email: authUser.email || "",
+          points: roleFallback === "volunteer" ? 1250 : 0,
+          cashBalance: 0,
+        });
+        setRole(roleFallback);
+      }
+
+      await fetchData(authUser.id, activeProfile?.role || roleFallback);
+    } catch (err) {
+      console.error("Exception in handleAuthSession:", err);
+    }
+  };
 
   useEffect(() => {
-    localStorage.setItem("civiceye_reports", JSON.stringify(reports));
-  }, [reports]);
-
-  useEffect(() => {
-    localStorage.setItem("civiceye_teams", JSON.stringify(teams));
-  }, [teams]);
-
-  useEffect(() => {
-    localStorage.setItem("civiceye_projects", JSON.stringify(projects));
-  }, [projects]);
-
-  useEffect(() => {
-    localStorage.setItem("civiceye_vtask", JSON.stringify(volunteerTask));
-  }, [volunteerTask]);
-
-  useEffect(() => {
-    localStorage.setItem("civiceye_proposals", JSON.stringify(proposals));
-  }, [proposals]);
-
-  const login = (email: string, userRole: "volunteer" | "staff", displayName?: string) => {
-    const defaultName = email.split("@")[0];
-    const name = displayName || defaultName;
-    const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
-    const mockUser: User = {
-      name: capitalized,
-      email: email,
-      points: userRole === "volunteer" ? 1250 : 0,
-      cashBalance: userRole === "volunteer" ? 0 : 0,
+    // Check initial session
+    const restoreSession = async () => {
+      setLoading(true);
+      try {
+        const { data: userData } = await supabase.auth.getCurrentUser();
+        if (userData?.user) {
+          await handleAuthSession(userData.user);
+        } else {
+          setRole(null);
+          setUser(null);
+          setUserId(null);
+        }
+      } catch (err) {
+        console.error("Session restoration failed:", err);
+      } finally {
+        setLoading(false);
+      }
     };
-    setUser(mockUser);
-    setRole(userRole);
+    restoreSession();
+  }, []);
+
+  const login = async (email: string, _role: "volunteer" | "staff", password?: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password: password || "password123",
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      if (data?.user) {
+        await handleAuthSession(data.user, _role);
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || "Login failed" };
+    }
   };
 
-  const logout = () => {
-    setRole(null);
-    setUser(null);
+  const logout = async () => {
+    setLoading(true);
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setRole(null);
+      setUser(null);
+      setUserId(null);
+      setReports([]);
+      setProjects([]);
+      setProposals([]);
+      setLoading(false);
+    }
   };
 
-  const addReport = (title: string, location: string, details: string) => {
-    const newReport: ReportItemExtended = {
-      id: Math.floor(10000 + Math.random() * 90000).toString(),
+  const registerUser = async (data: {
+    fullName: string;
+    email: string;
+    phone: string;
+    role: "volunteer" | "staff";
+    password?: string;
+    nik?: string;
+    address?: string;
+    staffId?: string;
+    department?: string;
+  }) => {
+    try {
+      const { data: authData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password || "password123",
+        name: data.fullName,
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      if (authData?.user) {
+        // Direct database insert into public.profiles
+        const { error: dbErr } = await supabase.database.from("profiles").insert([{
+          id: authData.user.id,
+          full_name: data.fullName,
+          role: data.role,
+          phone: data.phone,
+          email: data.email,
+          nik: data.nik || "",
+          address: data.address || "",
+          staff_id: data.staffId || "",
+          department: data.department || "",
+          points: data.role === "volunteer" ? 1250 : 0,
+          cash_balance: 0,
+        }]);
+        if (dbErr) {
+          console.error("Error inserting profile into database:", dbErr);
+        } else if (data.role === "volunteer") {
+          await addTransaction(authData.user.id, "points", 1250, "Pendaftaran Awal");
+        }
+
+        // Setup session state
+        await handleAuthSession(authData.user, data.role, data.fullName);
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || "Registration failed" };
+    }
+  };
+
+  const addReport = async (title: string, location: string, details: string, photoFile?: File) => {
+    let photoUrl = "/images/trash_debris.png";
+
+    // 1. Rate limit check: max 1 report every 3 minutes per citizen to prevent report flooding
+    if (user?.name) {
+      const { data: recentReports, error: rateLimitErr } = await supabase.database
+        .from("reports")
+        .select("created_at")
+        .eq("citizen_name", user.name)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (!rateLimitErr && recentReports && recentReports.length > 0) {
+        const lastReportTime = new Date(recentReports[0].created_at).getTime();
+        const now = Date.now();
+        const diffMinutes = (now - lastReportTime) / 60000;
+        if (diffMinutes < 3) {
+          const waitTime = Math.ceil(3 - diffMinutes);
+          throw new Error(`Proteksi Spam: Anda melaporkan terlalu cepat. Harap tunggu ${waitTime} menit lagi sebelum membuat laporan baru.`);
+        }
+      }
+    }
+
+    if (photoFile) {
+      try {
+        // 2. Generate SHA-256 hash of the photo file to prevent duplicate uploads (exploit check)
+        const arrayBuffer = await photoFile.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const imageHash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+
+        // Check if a report with this image hash already exists
+        const { data: duplicateReport, error: dupErr } = await supabase.database
+          .from("reports")
+          .select("id, title")
+          .ilike("photo_url", `%${imageHash}%`)
+          .maybeSingle();
+
+        if (duplicateReport) {
+          throw new Error(`Foto Duplikat Terdeteksi: Foto ini sudah pernah digunakan pada Laporan #${duplicateReport.id} ("${duplicateReport.title}"). Harap gunakan foto bukti yang baru.`);
+        }
+
+        const fileExt = photoFile.name.split(".").pop() || "png";
+        const fileName = `${imageHash}.${fileExt}`;
+        const { data, error: uploadErr } = await supabase.storage
+          .from("report-photos")
+          .upload(`reports/${fileName}`, photoFile);
+
+        if (uploadErr) {
+          console.error("Error uploading photo to storage:", uploadErr);
+          throw new Error("Gagal mengunggah foto ke storage: " + uploadErr.message);
+        } else if (data?.url) {
+          photoUrl = data.url;
+        }
+      } catch (err: any) {
+        console.error("Exception uploading photo to storage:", err);
+        throw err;
+      }
+    } else {
+      // Try to upload the mock image to Supabase Storage so we have a real remote file url
+      try {
+        const res = await fetch("/images/trash_debris.png");
+        const blob = await res.blob();
+        const fileName = `debris-${Date.now()}.png`;
+        const { data, error: uploadErr } = await supabase.storage
+          .from("report-photos")
+          .upload(`reports/${fileName}`, blob);
+
+        if (!uploadErr && data?.url) {
+          photoUrl = data.url;
+        }
+      } catch (err) {
+        console.warn("Could not upload seed image to storage, using fallback local path:", err);
+      }
+    }
+
+    const reportId = Math.floor(10000 + Math.random() * 90000).toString();
+    const newReport = {
+      id: reportId,
       title,
       location,
       time: "Baru saja",
       status: "New",
-      citizenName: user?.name || "David",
-      citizenProfile: `https://profiletye.com/${user?.name || "David"}'s profile`,
-      photoUrl: "/images/trash_debris.png",
+      citizen_name: user?.name || "David",
+      photo_url: photoUrl,
       details,
-      assignedTeam: "",
-      assignedSchedule: "",
+      assigned_team: "",
+      assigned_schedule: "",
       notes: "",
-      chat: [],
-      taskAssignmentStatus: "Available",
+      task_assignment_status: "Available",
+      reject_reason: "",
     };
-    setReports((prev) => [newReport, ...prev]);
 
-    if (role === "volunteer") {
-      addPoints(50);
+    const { error } = await supabase.database.from("reports").insert([newReport]);
+    if (error) {
+      console.error("Error inserting report into InsForge:", error);
+      throw new Error("Gagal menyimpan laporan: " + error.message);
+    }
+
+    if (userId) {
+      await fetchData(userId);
     }
   };
 
-  const updateReportStatus = (id: string, status: ReportStatus) => {
-    setReports((prev) =>
-      prev.map((rep) => {
-        if (rep.id === id) {
-          if (status === "Selesai" && rep.status !== "Selesai") {
-            addPoints(150);
+  const updateReportStatus = async (id: string, status: ReportStatus) => {
+    let taskAssignmentStatus = "Available";
+    if (status === "Processing") {
+      taskAssignmentStatus = "En Route";
+    } else if (status === "Needs Review") {
+      taskAssignmentStatus = "Needs Review";
+    } else if (status === "Selesai") {
+      taskAssignmentStatus = "Completed";
+    } else if (status === "New") {
+      taskAssignmentStatus = "Available";
+    }
+
+    const { error } = await supabase.database
+      .from("reports")
+      .update({
+        status,
+        task_assignment_status: taskAssignmentStatus
+      })
+      .eq("id", id);
+      
+    if (error) {
+      console.error("Error updating report status:", error);
+      return;
+    }
+
+    // Award citizen points if finished
+    if (status === "Selesai") {
+      const { data: report } = await supabase.database
+        .from("reports")
+        .select("title, citizen_name")
+        .eq("id", id)
+        .single();
+      if (report) {
+        const { data: citizen } = await supabase.database
+          .from("profiles")
+          .select("id, points")
+          .eq("full_name", report.citizen_name)
+          .maybeSingle();
+        if (citizen) {
+          await supabase.database
+            .from("profiles")
+            .update({ points: (citizen.points || 0) + 150 })
+            .eq("id", citizen.id);
+          await addTransaction(citizen.id, "points", 150, `Laporan Diselesaikan: ${report.title}`);
+        }
+      }
+    }
+
+    if (userId) {
+      await fetchData(userId);
+    }
+  };
+
+  const assignReportTeam = async (id: string, teamName: string) => {
+    await supabase.database
+      .from("reports")
+      .update({
+        assigned_team: teamName,
+        status: "Processing",
+      })
+      .eq("id", id);
+
+    await supabase.database
+      .from("teams")
+      .update({
+        status: "Active",
+        current_task_id: id,
+      })
+      .eq("name", teamName);
+
+    if (userId) {
+      await fetchData(userId);
+    }
+  };
+
+  const assignReportSchedule = async (id: string, schedule: string) => {
+    await supabase.database
+      .from("reports")
+      .update({ assigned_schedule: schedule })
+      .eq("id", id);
+
+    if (userId) {
+      await fetchData(userId);
+    }
+  };
+
+  const addStaffChat = async (reportId: string, text: string) => {
+    const sender = role === "staff" ? `Staff ${user?.name || "David"}` : (user?.name || "David");
+    await supabase.database
+      .from("report_chats")
+      .insert([{
+        report_id: reportId,
+        sender,
+        text,
+        time: "Baru saja",
+      }]);
+
+    if (userId) {
+      await fetchData(userId);
+    }
+  };
+
+  const updateReportNotes = async (id: string, notes: string) => {
+    await supabase.database
+      .from("reports")
+      .update({ notes })
+      .eq("id", id);
+
+    if (userId) {
+      await fetchData(userId);
+    }
+  };
+
+  const updateTaskAssignmentStatus = async (id: string, status: string) => {
+    let reportStatus: ReportStatus = "New";
+    if (status === "En Route" || status === "On Site" || status === "In Progress") {
+      reportStatus = "Processing";
+    } else if (status === "Needs Review") {
+      reportStatus = "Needs Review";
+    } else if (status === "Completed") {
+      reportStatus = "Selesai";
+    } else if (status === "Available") {
+      reportStatus = "New";
+    }
+
+    const { error } = await supabase.database
+      .from("reports")
+      .update({
+        task_assignment_status: status,
+        status: reportStatus
+      })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error updating task assignment status:", error);
+      return;
+    }
+
+    // Award citizen points if completed
+    if (reportStatus === "Selesai") {
+      const { data: report } = await supabase.database
+        .from("reports")
+        .select("title, citizen_name")
+        .eq("id", id)
+        .single();
+      if (report) {
+        const { data: citizen } = await supabase.database
+          .from("profiles")
+          .select("id, points")
+          .eq("full_name", report.citizen_name)
+          .maybeSingle();
+        if (citizen) {
+          await supabase.database
+            .from("profiles")
+            .update({ points: (citizen.points || 0) + 150 })
+            .eq("id", citizen.id);
+          await addTransaction(citizen.id, "points", 150, `Laporan Diselesaikan: ${report.title}`);
+        }
+      }
+    }
+
+    if (userId) {
+      await fetchData(userId);
+    }
+  };
+
+  const rejectReport = async (id: string, reason: string) => {
+    await supabase.database
+      .from("reports")
+      .update({
+        status: "Rejected",
+        reject_reason: reason,
+      })
+      .eq("id", id);
+
+    // Penalty deduction from submitter (anti-spam disincentive)
+    try {
+      const { data: report } = await supabase.database
+        .from("reports")
+        .select("title, citizen_name")
+        .eq("id", id)
+        .single();
+
+      if (report && report.citizen_name) {
+        const { data: citizen } = await supabase.database
+          .from("profiles")
+          .select("id, points")
+          .eq("full_name", report.citizen_name)
+          .maybeSingle();
+
+        if (citizen) {
+          const penalty = 100; // Deduct 100 points as spam penalty
+          const newPoints = Math.max(0, (citizen.points || 0) - penalty);
+
+          await supabase.database
+            .from("profiles")
+            .update({ points: newPoints })
+            .eq("id", citizen.id);
+
+          await addTransaction(
+            citizen.id,
+            "points",
+            -penalty,
+            `Laporan Ditolak (Spam/Duplikat): ${report.title}`
+          );
+
+          if (userId === citizen.id) {
+            setUser((prev) => (prev ? { ...prev, points: newPoints } : null));
           }
-          return { ...rep, status };
         }
-        return rep;
-      })
-    );
+      }
+    } catch (err) {
+      console.error("Failed to apply spam penalty in rejectReport:", err);
+    }
+
+    if (userId) {
+      await fetchData(userId);
+    }
   };
 
-  const assignReportTeam = (id: string, teamName: string) => {
-    setReports((prev) =>
-      prev.map((rep) => {
-        if (rep.id === id) {
-          return {
-            ...rep,
-            assignedTeam: teamName,
-            status: rep.status === "New" ? "Processing" : rep.status,
-          };
-        }
-        return rep;
-      })
-    );
+  const addPoints = async (amount: number, description: string = "Penambahan Poin") => {
+    if (!userId) return;
 
-    setTeams((prev) =>
-      prev.map((team) => {
-        if (team.name === teamName) {
-          return { ...team, status: "Active", currentTaskId: id };
-        }
-        return team;
-      })
-    );
+    let currentPoints = user?.points || 0;
+    const { data: profile } = await supabase.database
+      .from("profiles")
+      .select("points")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (profile) {
+      currentPoints = profile.points || 0;
+    }
+
+    const newPoints = currentPoints + amount;
+    await supabase.database
+      .from("profiles")
+      .update({ points: newPoints })
+      .eq("id", userId);
+
+    setUser((prev) => (prev ? { ...prev, points: newPoints } : null));
+    await addTransaction(userId, "points", amount, description);
   };
 
-  const assignReportSchedule = (id: string, schedule: string) => {
-    setReports((prev) =>
-      prev.map((rep) => (rep.id === id ? { ...rep, assignedSchedule: schedule } : rep))
-    );
-  };
-
-  const addStaffChat = (reportId: string, text: string) => {
-    const newChat: StaffChat = {
-      id: Math.random().toString(),
-      sender: role === "staff" ? `Staff ${user?.name || "David"}` : (user?.name || "David"),
-      text,
-      time: "Baru saja",
-    };
-    setReports((prev) =>
-      prev.map((rep) =>
-        rep.id === reportId ? { ...rep, chat: [...(rep.chat || []), newChat] } : rep
-      )
-    );
-  };
-
-  const updateReportNotes = (id: string, notes: string) => {
-    setReports((prev) =>
-      prev.map((rep) => (rep.id === id ? { ...rep, notes } : rep))
-    );
-  };
-
-  const updateTaskAssignmentStatus = (id: string, status: string) => {
-    setReports((prev) =>
-      prev.map((rep) => (rep.id === id ? { ...rep, taskAssignmentStatus: status } : rep))
-    );
-  };
-
-  const rejectReport = (id: string, reason: string) => {
-    setReports((prev) =>
-      prev.map((rep) =>
-        rep.id === id ? { ...rep, status: "Rejected", rejectReason: reason } : rep
-      )
-    );
-  };
-
-  const addPoints = (amount: number) => {
-    setUser((prev) => (prev ? { ...prev, points: prev.points + amount } : null));
-  };
-
-  const updateTeamStatus = (
+  const updateTeamStatus = async (
     teamName: string,
     status: "Available" | "Active" | "Offline"
   ) => {
-    setTeams((prev) =>
-      prev.map((team) => (team.name === teamName ? { ...team, status } : team))
-    );
+    await supabase.database
+      .from("teams")
+      .update({ status })
+      .eq("name", teamName);
+
+    if (userId) {
+      await fetchData(userId);
+    }
   };
 
   // Volunteer actions
-  const donateToProject = (projectId: string, pointsAmount: number) => {
-    if (!user || user.points < pointsAmount) return false;
-    setUser((prev) => (prev ? { ...prev, points: prev.points - pointsAmount } : null));
-    setProjects((prev) =>
-      prev.map((p) =>
-        p.id === projectId ? { ...p, donated: p.donated + pointsAmount * 100 } : p
-      )
-    );
-    return true;
-  };
+  const donateToProject = async (projectId: string, pointsAmount: number) => {
+    if (!user || user.points < pointsAmount || !userId) return false;
 
-  const joinProject = (projectId: string) => {
-    let success = false;
-    setProjects((prev) =>
-      prev.map((p) => {
-        if (p.id === projectId && !p.joined) {
-          success = true;
-          return { ...p, volunteers: p.volunteers + 1, joined: true };
-        }
-        return p;
-      })
-    );
+    // Decrement user points
+    const newPoints = user.points - pointsAmount;
+    const { error: profileErr } = await supabase.database
+      .from("profiles")
+      .update({ points: newPoints })
+      .eq("id", userId);
 
-    if (success) {
-      addPoints(50);
-      return true;
+    if (profileErr) {
+      console.error("Error updating user points during donation:", profileErr);
+      alert("Gagal mendonasikan poin: " + profileErr.message);
+      return false;
     }
-    return false;
-  };
 
-  const redeemVoucher = (pointsAmount: number) => {
-    if (!user || user.points < pointsAmount) return false;
-    setUser((prev) => (prev ? { ...prev, points: prev.points - pointsAmount } : null));
+    // Update local state immediately for fast visual feedback
+    setUser((prev) => (prev ? { ...prev, points: newPoints } : null));
+
+    // Fetch current donated fund & title
+    const { data: project } = await supabase.database
+      .from("projects")
+      .select("title, donated")
+      .eq("id", projectId)
+      .single();
+
+    if (project) {
+      const newDonated = (project.donated || 0) + (pointsAmount * 100);
+      const { error: projectErr } = await supabase.database
+        .from("projects")
+        .update({ donated: newDonated })
+        .eq("id", projectId);
+
+      if (projectErr) {
+        console.error("Error updating project donated amount:", projectErr);
+      }
+
+      await addTransaction(userId, "points", -pointsAmount, `Donasi Aksi: ${project.title}`);
+    }
+
+    await fetchData(userId);
     return true;
   };
 
-  const acceptVolunteerTask = () => {
+  const joinProject = async (projectId: string) => {
+    if (!userId) return false;
+
+    const { data: existing } = await supabase.database
+      .from("project_members")
+      .select("*")
+      .eq("project_id", projectId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (existing) return false;
+
+    await supabase.database
+      .from("project_members")
+      .insert([{ project_id: projectId, user_id: userId }]);
+
+    const { data: project } = await supabase.database
+      .from("projects")
+      .select("title, volunteers")
+      .eq("id", projectId)
+      .single();
+
+    if (project) {
+      await supabase.database
+        .from("projects")
+        .update({ volunteers: (project.volunteers || 0) + 1 })
+        .eq("id", projectId);
+      await addPoints(50, `Gabung Relawan: ${project.title}`);
+    } else {
+      await addPoints(50, "Gabung Relawan Aksi");
+    }
+
+    await fetchData(userId);
+    return true;
+  };
+
+  const redeemVoucher = async (pointsAmount: number, voucherId: string, title: string) => {
+    if (!user || !userId || user.points < pointsAmount) return false;
+
+    const newPoints = user.points - pointsAmount;
+    const mockCode = `CE-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const { error: profileErr } = await supabase.database
+      .from("profiles")
+      .update({ points: newPoints })
+      .eq("id", userId);
+
+    if (profileErr) {
+      console.error("Error updating points in profiles during voucher redeem:", profileErr);
+      alert("Gagal memperbarui poin: " + profileErr.message);
+      return false;
+    }
+
+    // Update local state immediately for fast visual feedback
+    setUser((prev) => (prev ? { ...prev, points: newPoints } : null));
+
+    const { error: voucherErr } = await supabase.database
+      .from("user_vouchers")
+      .insert([{
+        user_id: userId,
+        voucher_id: voucherId,
+        title: title,
+        code: mockCode,
+      }]);
+
+    if (voucherErr) {
+      console.error("Error saving user voucher:", voucherErr);
+    }
+
+    await addTransaction(userId, "points", -pointsAmount, `Klaim Voucher: ${title}`);
+    await fetchData(userId);
+
+    return mockCode;
+  };
+
+  const acceptVolunteerTask = async () => {
+    if (!userId) return;
     setVolunteerTask((prev) => ({ ...prev, status: "accepted" }));
+    await supabase.database
+      .from("volunteer_tasks")
+      .update({ status: "accepted" })
+      .eq("user_id", userId);
   };
 
-  const uploadVolunteerTaskPhoto = () => {
+  const uploadVolunteerTaskPhoto = async () => {
+    if (!userId) return;
     setVolunteerTask((prev) => ({ ...prev, status: "uploaded" }));
+    await supabase.database
+      .from("volunteer_tasks")
+      .update({ status: "uploaded" })
+      .eq("user_id", userId);
   };
 
-  const completeVolunteerTask = () => {
+  const completeVolunteerTask = async () => {
+    if (!userId) return;
     setVolunteerTask((prev) => ({ ...prev, status: "completed" }));
+    await supabase.database
+      .from("volunteer_tasks")
+      .update({ status: "completed" })
+      .eq("user_id", userId);
   };
 
-  const claimVolunteerTaskPayout = () => {
-    if (volunteerTask.status !== "completed") return;
+  const claimVolunteerTaskPayout = async () => {
+    if (volunteerTask.status !== "completed" || !user || !userId) return;
+
     setVolunteerTask((prev) => ({ ...prev, status: "claimed" }));
-    setUser((prev) =>
-      prev
-        ? {
-            ...prev,
-            cashBalance: prev.cashBalance + volunteerTask.payout,
-            points: prev.points + 100,
-          }
-        : null
-    );
+    
+    await supabase.database
+      .from("volunteer_tasks")
+      .update({ status: "claimed" })
+      .eq("user_id", userId);
+
+    const newCash = user.cashBalance + volunteerTask.payout;
+    const newPoints = user.points + 100;
+
+    const { error: profileErr } = await supabase.database
+      .from("profiles")
+      .update({
+        cash_balance: newCash,
+        points: newPoints,
+      })
+      .eq("id", userId);
+
+    if (profileErr) {
+      console.error("Error updating profile during payout claim:", profileErr);
+      alert("Gagal mengklaim upah: " + profileErr.message);
+      return;
+    }
+
+    // Update local state immediately for fast visual feedback
+    setUser((prev) => (prev ? { ...prev, points: newPoints, cashBalance: newCash } : null));
+
+    await addTransaction(userId, "cash", volunteerTask.payout, `Upah Kerja: ${volunteerTask.issue}`);
+    await addTransaction(userId, "points", 100, `Poin Tugas: ${volunteerTask.issue}`);
+
+    await fetchData(userId);
   };
 
   // Citizen Proposal actions
-  const proposeProject = (
+  const proposeProject = async (
     title: string,
     location: string,
     description: string,
     category: string
   ) => {
-    const newProposal: ProjectProposal = {
-      id: "prop" + Math.floor(1000 + Math.random() * 9000).toString(),
+    const proposalId = "prop" + Math.floor(1000 + Math.random() * 9000).toString();
+    const newProposal = {
+      id: proposalId,
       title,
       location,
       description,
       category,
-      proposerName: user?.name || "David",
+      proposer_name: user?.name || "David",
       status: "pending",
     };
-    setProposals((prev) => [newProposal, ...prev]);
-  };
 
-  const approveProjectProposal = (id: string, targetFund: number = 10000000) => {
-    let proposalToApprove: ProjectProposal | null = null;
-    
-    setProposals((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          proposalToApprove = p;
-          return { ...p, status: "approved" };
-        }
-        return p;
-      })
-    );
+    const { error } = await supabase.database.from("proposals").insert([newProposal]);
+    if (error) {
+      console.error("Error inserting proposal:", error);
+      alert("Gagal mengirim usulan aksi warga: " + error.message);
+      return;
+    }
 
-    if (proposalToApprove) {
-      const p = proposalToApprove as ProjectProposal;
-      const emojiMap: Record<string, string> = {
-        Greenery: "🌳",
-        Repair: "🚧",
-        Cleanup: "🌊",
-      };
-      
-      const newProject: CommunityProject = {
-        id: p.id, // using proposal ID for edit linkage
-        title: p.title,
-        location: p.location,
-        volunteers: 1, // proposer is the first registered volunteer!
-        donated: 0,
-        target: targetFund,
-        emoji: emojiMap[p.category] || "🌊",
-        joined: true,
-      };
-
-      setProjects((prev) => [newProject, ...prev]);
+    if (userId) {
+      await fetchData(userId, role);
     }
   };
 
-  const rejectProjectProposal = (id: string) => {
-    setProposals((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: "rejected" } : p))
-    );
+  const approveProjectProposal = async (id: string, targetFund: number = 10000000) => {
+    const { data: p } = await supabase.database
+      .from("proposals")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (!p) return;
+
+    await supabase.database
+      .from("proposals")
+      .update({ status: "approved" })
+      .eq("id", id);
+
+    const emojiMap: Record<string, string> = {
+      Greenery: "🌳",
+      Repair: "🚧",
+      Cleanup: "🌊",
+    };
+
+    const newProject = {
+      id: p.id,
+      title: p.title,
+      location: p.location,
+      volunteers: 1,
+      donated: 0,
+      target: targetFund,
+      emoji: emojiMap[p.category] || "🌊",
+    };
+
+    await supabase.database.from("projects").insert([newProject]);
+
+    const { data: proposerProfile } = await supabase.database
+      .from("profiles")
+      .select("id")
+      .eq("full_name", p.proposer_name)
+      .maybeSingle();
+
+    if (proposerProfile) {
+      await supabase.database
+        .from("project_members")
+        .insert([{ project_id: p.id, user_id: proposerProfile.id }]);
+    }
+
+    if (userId) {
+      await fetchData(userId);
+    }
   };
 
-  const updateProjectTargetFund = (id: string, newTarget: number) => {
-    setProjects((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, target: newTarget } : p))
-    );
+  const rejectProjectProposal = async (id: string) => {
+    await supabase.database
+      .from("proposals")
+      .update({ status: "rejected" })
+      .eq("id", id);
+
+    if (userId) {
+      await fetchData(userId);
+    }
   };
 
+  const updateProjectTargetFund = async (id: string, newTarget: number) => {
+    await supabase.database
+      .from("projects")
+      .update({ target: newTarget })
+      .eq("id", id);
+
+    if (userId) {
+      await fetchData(userId);
+    }
+  };
+
+  const updateProfile = async (fullName: string) => {
+    if (!userId) return false;
+
+    try {
+      const { error } = await supabase.database
+        .from("profiles")
+        .update({ full_name: fullName })
+        .eq("id", userId);
+
+      if (error) {
+        console.error("Error updating profile in database:", error);
+        return false;
+      }
+
+      setUser((prev) => (prev ? { ...prev, name: fullName } : null));
+      return true;
+    } catch (err) {
+      console.error("Exception in updateProfile:", err);
+      return false;
+    }
+  };
+  const cancelTeamAssignment = async (reportId: string, teamName: string) => {
+    await supabase.database
+      .from("reports")
+      .update({
+        assigned_team: "",
+        status: "New",
+        task_assignment_status: "Available",
+      })
+      .eq("id", reportId);
+
+    await supabase.database
+      .from("teams")
+      .update({
+        status: "Available",
+        current_task_id: null,
+      })
+      .eq("name", teamName);
+
+    if (userId) {
+      await fetchData(userId);
+    }
+  };
+  const createTeam = async (name: string, members: string[]) => {
+    const { error } = await supabase.database
+      .from("teams")
+      .insert([{
+        name,
+        members,
+        status: "Available",
+        current_task_id: null
+      }]);
+
+    if (error) {
+      console.error("Error creating team:", error);
+      return false;
+    }
+
+    if (userId) {
+      await fetchData(userId);
+    }
+    return true;
+  };
+
+  const updateTeamMembers = async (teamName: string, members: string[]) => {
+    const { error } = await supabase.database
+      .from("teams")
+      .update({ members })
+      .eq("name", teamName);
+
+    if (error) {
+      console.error("Error updating team members:", error);
+      return false;
+    }
+
+    if (userId) {
+      await fetchData(userId);
+    }
+    return true;
+  };
   return (
     <AppContext.Provider
       value={{
@@ -622,8 +1388,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         projects,
         volunteerTask,
         proposals,
+        transactions,
+        loading,
         login,
         logout,
+        registerUser,
         addReport,
         updateReportStatus,
         assignReportTeam,
@@ -647,6 +1416,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         approveProjectProposal,
         rejectProjectProposal,
         updateProjectTargetFund,
+        updateProfile,
+        cancelTeamAssignment,
+        createTeam,
+        updateTeamMembers,
       }}
     >
       {children}

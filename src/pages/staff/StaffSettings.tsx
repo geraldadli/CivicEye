@@ -1,17 +1,60 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 import { Settings, User, Bell, Shield } from "lucide-react";
 
 export default function StaffSettings() {
-  const { user } = useApp();
-  const [profileName, setProfileName] = useState(user?.name || "David");
+  const { user, updateProfile } = useApp();
+  const [profileName, setProfileName] = useState(user?.name || "");
   const [autoAssign, setAutoAssign] = useState(false);
   const [pushNotif, setPushNotif] = useState(true);
   const [soundNotif, setSoundNotif] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  // Sync profileName when user context is populated
+  useEffect(() => {
+    if (user?.name) {
+      setProfileName(user.name);
+    }
+  }, [user?.name]);
+
+  // Load notification / autoAssign settings from localStorage
+  useEffect(() => {
+    if (user?.email) {
+      const saved = localStorage.getItem(`civiceye:settings:${user.email}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.autoAssign !== undefined) setAutoAssign(parsed.autoAssign);
+          if (parsed.pushNotif !== undefined) setPushNotif(parsed.pushNotif);
+          if (parsed.soundNotif !== undefined) setSoundNotif(parsed.soundNotif);
+        } catch (e) {
+          console.error("Error parsing saved settings:", e);
+        }
+      }
+    }
+  }, [user?.email]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert("Konfigurasi staf berhasil disimpan!");
+    if (!profileName.trim()) {
+      alert("Nama Lengkap tidak boleh kosong.");
+      return;
+    }
+
+    setSaving(true);
+    const success = await updateProfile(profileName.trim());
+    setSaving(false);
+
+    if (success) {
+      // Save other configurations to localStorage
+      if (user?.email) {
+        const settings = { autoAssign, pushNotif, soundNotif };
+        localStorage.setItem(`civiceye:settings:${user.email}`, JSON.stringify(settings));
+      }
+      alert("Konfigurasi staf berhasil disimpan!");
+    } else {
+      alert("Gagal menyimpan profil ke database.");
+    }
   };
 
   return (
@@ -65,7 +108,7 @@ export default function StaffSettings() {
                 </label>
                 <input
                   type="text"
-                  value="Supervising Operator & Dispatcher"
+                  value={user?.department ? `Officer - ${user.department}` : "Supervising Operator & Dispatcher"}
                   disabled
                   className="w-full bg-[#1E4D6B]/50 border border-white/5 rounded-2xl p-3.5 text-sm text-stone-400 outline-none cursor-not-allowed"
                 />
@@ -77,7 +120,7 @@ export default function StaffSettings() {
                 </label>
                 <input
                   type="text"
-                  value="STF-90245"
+                  value={user?.staffId || "STF-90245"}
                   disabled
                   className="w-full bg-[#1E4D6B]/50 border border-white/5 rounded-2xl p-3.5 text-sm text-stone-400 outline-none cursor-not-allowed"
                 />
@@ -165,9 +208,16 @@ export default function StaffSettings() {
           {/* Save Button */}
           <button
             type="submit"
-            className="w-full py-4 bg-gradient-to-r from-orange-500 to-amber-400 text-white font-bold rounded-2xl shadow-lg shadow-orange-900/10 hover:shadow-orange-900/25 active:scale-[0.99] transition"
+            disabled={saving}
+            className={`w-full py-4 bg-gradient-to-r from-orange-500 to-amber-400 text-white font-bold rounded-2xl shadow-lg shadow-orange-900/10 hover:shadow-orange-900/25 active:scale-[0.99] transition flex items-center justify-center gap-2 ${
+              saving ? "opacity-90 cursor-not-allowed" : ""
+            }`}
           >
-            Simpan Konfigurasi
+            {saving ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              "Simpan Konfigurasi"
+            )}
           </button>
         </div>
       </form>

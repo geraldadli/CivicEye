@@ -15,7 +15,7 @@ export default function ForumPage() {
   const [category, setCategory] = useState("Cleanup");
   const [description, setDescription] = useState("");
 
-  const handleDonate = (projectId: string, projectTitle: string) => {
+  const handleDonate = async (projectId: string, projectTitle: string) => {
     const defaultDonation = 100;
     const input = prompt(
       `Donasikan Civic Points Anda untuk "${projectTitle}"\nSetiap 100 Points setara dengan Rp 10.000,00.\nPoints Anda saat ini: ${user?.points || 0} pts.\n\nMasukkan jumlah points yang ingin didonasikan:`,
@@ -35,7 +35,7 @@ export default function ForumPage() {
       return;
     }
 
-    const success = donateToProject(projectId, pointsAmount);
+    const success = await donateToProject(projectId, pointsAmount);
     if (success) {
       alert(
         `Terima kasih! Anda berhasil mendonasikan ${pointsAmount} Civic Points (setara dengan ${rupiah(
@@ -47,14 +47,14 @@ export default function ForumPage() {
     }
   };
 
-  const handleJoin = (projectId: string, projectTitle: string) => {
+  const handleJoin = async (projectId: string, projectTitle: string) => {
     const project = projects.find((p) => p.id === projectId);
     if (project?.joined) {
       alert(`Anda sudah terdaftar sebagai relawan dalam proyek "${projectTitle}"!`);
       return;
     }
 
-    const success = joinProject(projectId);
+    const success = await joinProject(projectId);
     if (success) {
       alert(
         `Selamat! Anda berhasil bergabung dalam aksi "${projectTitle}".\nAnda mendapatkan +50 Civic Points sebagai apresiasi!`

@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 export default function LoginScreen() {
-  const { login } = useApp();
+  const { login, registerUser } = useApp();
   const [isRegistering, setIsRegistering] = useState(false);
   const [activeTab, setActiveTab] = useState<"volunteer" | "staff">("volunteer");
 
@@ -71,10 +71,12 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      login(email, activeTab);
+    login(email, activeTab, password).then((res) => {
       setLoading(false);
-    }, 800);
+      if (!res.success) {
+        setError(res.error || "Gagal masuk.");
+      }
+    });
   };
 
   const handleRegisterSubmit = (e: React.FormEvent) => {
@@ -126,14 +128,26 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      // Login with actual registered name
-      login(email, activeTab, fullName);
+    registerUser({
+      fullName,
+      email,
+      phone,
+      role: activeTab,
+      password,
+      nik: activeTab === "volunteer" ? nik : undefined,
+      address: activeTab === "volunteer" ? address : undefined,
+      staffId: activeTab === "staff" ? staffId : undefined,
+      department: activeTab === "staff" ? department : undefined,
+    }).then((res) => {
       setLoading(false);
-      alert(
-        `Registrasi Berhasil!\nSelamat datang ${fullName}, akun ${activeTab} Anda telah aktif di CivicEye.`
-      );
-    }, 1200);
+      if (!res.success) {
+        setError(res.error || "Gagal mendaftar.");
+      } else {
+        alert(
+          `Registrasi Berhasil!\nSelamat datang ${fullName}, akun ${activeTab} Anda telah aktif di CivicEye.`
+        );
+      }
+    });
   };
 
   const handleQuickLogin = (role: "volunteer" | "staff") => {
@@ -144,10 +158,12 @@ export default function LoginScreen() {
     setPassword("password123");
     setActiveTab(role);
     setLoading(true);
-    setTimeout(() => {
-      login(mockEmail, role);
+    login(mockEmail, role, "password123").then((res) => {
       setLoading(false);
-    }, 500);
+      if (!res.success) {
+        setError(res.error || "Gagal masuk demo.");
+      }
+    });
   };
 
   return (

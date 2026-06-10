@@ -270,16 +270,18 @@ export default function StaffReportInbox() {
                   Google Map
                 </span>
               </div>
-              <div className="h-60 relative">
-                <img
-                  src="/images/map_mockup.png"
-                  alt="Google Map"
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-4 left-4 bg-white/95 backdrop-blur text-stone-850 px-3 py-1.5 rounded-xl text-xs font-bold shadow-md border border-stone-200 flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-red-500" />
-                  {selectedReport.location}
-                </div>
+              <div className="h-60 relative w-full">
+                <iframe
+                  title="Google Map View"
+                  width="100%"
+                  height="100%"
+                  frameBorder="0"
+                  style={{ border: 0 }}
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(
+                    selectedReport.location
+                  )}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                  allowFullScreen
+                ></iframe>
               </div>
             </div>
 
@@ -346,13 +348,11 @@ export default function StaffReportInbox() {
                   className="w-full text-xs font-semibold bg-[#123956] border border-[#1E4D6B] rounded-xl p-3 outline-none text-white focus:border-orange-400"
                 >
                   <option value="">Assign to Field Team</option>
-                  {teams
-                    .filter((t) => t.status === "Available" || t.name === selectedReport.assignedTeam)
-                    .map((team) => (
-                      <option key={team.name} value={team.name}>
-                        {team.name}
-                      </option>
-                    ))}
+                  {teams.map((team) => (
+                    <option key={team.name} value={team.name}>
+                      {team.name} ({team.status})
+                    </option>
+                  ))}
                 </select>
               </div>
 

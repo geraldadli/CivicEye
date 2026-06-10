@@ -75,7 +75,7 @@ export default function StaffPortal() {
   return (
     <div className="min-h-screen bg-[#FDF9F4] text-stone-850 flex flex-col font-sans">
       {/* Mobile Top Navigation */}
-      <header className="lg:hidden flex items-center justify-between px-5 py-4 bg-[#0F354D] text-white shadow-md z-45">
+      <header className="sticky top-0 lg:hidden flex items-center justify-between px-5 py-4 bg-[#0F354D] text-white shadow-md z-45">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setMobileMenuOpen(true)}
@@ -108,7 +108,7 @@ export default function StaffPortal() {
       {/* Mobile Sidebar Overlay Drawer */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm lg:hidden">
-          <div className="w-72 bg-[#0F354D] h-full flex flex-col p-6 text-white shadow-2xl relative animate-slide-right">
+          <div className="w-72 bg-[#0F354D] h-full flex flex-col p-6 text-white shadow-2xl relative animate-slide-right overflow-y-auto">
             <button
               onClick={() => setMobileMenuOpen(false)}
               className="absolute top-5 right-5 p-1.5 hover:bg-white/10 rounded-xl transition"
@@ -170,7 +170,7 @@ export default function StaffPortal() {
       <div className="flex-1 flex flex-col lg:flex-row h-screen overflow-hidden">
         {/* Desktop Sidebar */}
         <aside className="hidden lg:flex lg:w-72 lg:flex-col lg:p-6 bg-transparent h-full shrink-0">
-          <div className="flex flex-col h-full bg-[#0F354D] rounded-[36px] p-5 text-white shadow-xl shadow-stone-200 border border-slate-700/10">
+          <div className="flex flex-col h-full bg-[#0F354D] rounded-[36px] p-5 text-white shadow-xl shadow-stone-200 border border-slate-700/10 overflow-y-auto">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-orange-400">
                 CivicEye

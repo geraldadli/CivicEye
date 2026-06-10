@@ -14,27 +14,46 @@ export default function ReportPage({
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("Kampus Bina Nusantara Kemanggisan");
   const [hasPhoto, setHasPhoto] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+      setHasPhoto(true);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!photoFile) {
+      alert("Silakan unggah foto bukti laporan terlebih dahulu.");
+      return;
+    }
     if (!description.trim()) {
       alert("Silakan masukkan deskripsi laporan.");
       return;
     }
 
     setSubmitting(true);
-    setTimeout(() => {
-      addReport(issueType, location, description);
-      setSubmitting(false);
+    try {
+      await addReport(issueType, location, description, photoFile);
       setSuccess(true);
       setTimeout(() => {
         if (setTab) {
           setTab("home");
         }
       }, 1500);
-    }, 1000);
+    } catch (err: any) {
+      console.error(err);
+      alert("Gagal mengirim laporan: " + (err.message || err));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -55,26 +74,33 @@ export default function ReportPage({
             <div className="w-16 h-16 bg-orange-500 text-white rounded-full flex items-center justify-center mx-auto text-2xl">
               ✓
             </div>
-            <h3 className="text-lg font-bold text-stone-900">Laporan Berhasil Dikirim!</h3>
+            <h3 className="text-lg font-bold text-stone-900">Laporan Berhasil Terkirim!</h3>
             <p className="text-sm text-stone-500">
-              Anda mendapatkan +50 Civic Points! Mengalihkan ke halaman Home...
+              Laporan Anda sedang menunggu verifikasi Staff. Anda akan menerima +150 Civic Points setelah laporan diselesaikan! Duplikat atau spam akan dikenakan denda pengurangan poin. Mengalihkan ke halaman Home...
             </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
             {/* Step 1: Photo Bukti */}
             <div
-              onClick={() => setHasPhoto(true)}
+              onClick={() => document.getElementById("file-upload")?.click()}
               className={`rounded-[28px] border-2 border-dashed p-5 text-center cursor-pointer transition ${
                 hasPhoto
                   ? "border-emerald-300 bg-emerald-50/50"
                   : "border-orange-200 bg-orange-50 hover:bg-orange-100/50"
               }`}
             >
-              {hasPhoto ? (
+              <input
+                id="file-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              {hasPhoto && photoPreview ? (
                 <div className="space-y-2">
                   <img
-                    src="/images/trash_debris.png"
+                    src={photoPreview}
                     alt="Preview Laporan"
                     className="mx-auto h-32 w-48 object-cover rounded-2xl shadow-md border-2 border-white"
                   />
@@ -145,16 +171,23 @@ export default function ReportPage({
                   />
                 </div>
                 <div className="mt-4 h-36 rounded-[20px] bg-white/70 overflow-hidden relative border border-stone-200">
-                  <img
-                    src="/images/map_mockup.png"
-                    alt="Map View"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/10 flex items-center justify-center pointer-events-none">
-                    <span className="bg-white/90 backdrop-blur px-3 py-1.5 rounded-full text-xs font-bold text-stone-850 shadow">
-                      Kampus Binus Kemanggisan
-                    </span>
-                  </div>
+                  {location.trim() ? (
+                    <iframe
+                      title="Google Map Preview"
+                      width="100%"
+                      height="100%"
+                      frameBorder="0"
+                      style={{ border: 0 }}
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(
+                        location
+                      )}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                      allowFullScreen
+                    ></iframe>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs font-semibold">
+                      Masukkan lokasi untuk melihat peta
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -33,7 +33,7 @@ export default function StorePage() {
     },
   ];
 
-  const handleRedeem = (voucher: Voucher) => {
+  const handleRedeem = async (voucher: Voucher) => {
     if (!user) return;
     if (user.points < voucher.points) {
       alert(
@@ -47,14 +47,10 @@ export default function StorePage() {
     );
     if (!confirmRedeem) return;
 
-    const success = redeemVoucher(voucher.points);
-    if (success) {
-      const mockCode = `CE-${Math.random()
-        .toString(36)
-        .substring(2, 6)
-        .toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const code = await redeemVoucher(voucher.points, voucher.id, voucher.title);
+    if (code) {
       alert(
-        `Klaim Berhasil!\n\nAnda menukarkan ${voucher.points} pts untuk "${voucher.title}".\n\nKode Voucher Anda:\n${mockCode}\n\nTunjukkan kode di atas di merchant atau salin ke e-wallet Anda.`
+        `Klaim Berhasil!\n\nAnda menukarkan ${voucher.points} pts untuk "${voucher.title}".\n\nKode Voucher Anda:\n${code}\n\nTunjukkan kode di atas di merchant atau salin ke e-wallet Anda.`
       );
     }
   };

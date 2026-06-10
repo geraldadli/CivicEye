@@ -6,6 +6,7 @@ import {
   Medal,
   MessageSquareText,
   ShieldCheck,
+  Wallet,
 } from "lucide-react";
 import { getRank } from "../utils/ranks";
 import ProgressBar from "../components/common/ProgressBar";
@@ -18,14 +19,14 @@ export default function HomePage({
 }: {
   setTab?: (tab: "home" | "forum" | "scan" | "community" | "store") => void;
 }) {
-  const { user, reports } = useApp();
+  const { user, reports, transactions } = useApp();
+  console.log("HomePage rendering - transactions array:", transactions);
   const points = user?.points ?? 1250;
   const rank = useMemo(() => getRank(points), [points]);
 
-  // Filter reports submitted by this user, or just show all for demo purposes.
-  // Let's show all reports for the user but map their statuses to volunteer terms.
+  // Filter reports submitted by this logged-in user
   const activeReports = reports
-    .filter((r) => r.status !== "Rejected")
+    .filter((r) => r.status !== "Rejected" && r.citizenName === user?.name)
     .map((report) => {
       let volunteerStatus: "Diterima" | "Menuju Lokasi" | "Proses" | "Selesai" = "Diterima";
       if (report.status === "New") {
@@ -112,6 +113,54 @@ export default function HomePage({
           </button>
         ))}
       </section>
+
+      <SectionCard
+        title="Riwayat Wallet & Civic Points"
+        subtitle="Daftar transaksi perolehan poin dan saldo dompet warga."
+        icon={<Wallet className="h-5 w-5 text-orange-600" />}
+      >
+        <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+          {transactions.length > 0 ? (
+            transactions.slice(0, 5).map((tx) => {
+              const isPositive = tx.amount > 0;
+              const sign = isPositive ? "+" : "";
+              const isCash = tx.type === "cash";
+              const formattedVal = isCash
+                ? new Intl.NumberFormat("id-ID", {
+                    style: "currency",
+                    currency: "IDR",
+                    maximumFractionDigits: 0,
+                  }).format(Math.abs(tx.amount))
+                : `${Math.abs(tx.amount)} pts`;
+
+              return (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between rounded-2xl bg-stone-50 p-4 border border-stone-100/50 hover:border-orange-100 transition"
+                >
+                  <div className="text-left">
+                    <p className="font-semibold text-stone-900 text-sm">{tx.description}</p>
+                    <p className="text-xs text-stone-400 mt-1">{tx.time} • {isCash ? "Dompet" : "Points"}</p>
+                  </div>
+                  <span
+                    className={`text-sm font-extrabold px-3 py-1.5 rounded-xl border ${
+                      isPositive
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-red-50 text-red-700 border-red-200"
+                    }`}
+                  >
+                    {sign}{formattedVal}
+                  </span>
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-center py-6 text-stone-500 text-sm">
+              Belum ada transaksi poin atau dompet tercatat.
+            </div>
+          )}
+        </div>
+      </SectionCard>
 
       <SectionCard
         title="Laporan Terakhir"

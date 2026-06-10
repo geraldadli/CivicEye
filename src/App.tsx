@@ -50,8 +50,8 @@ function VolunteerPortal() {
   return (
     <div className="min-h-screen overflow-x-hidden text-stone-900 bg-transparent">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col lg:flex-row">
-        <aside className="hidden lg:block lg:w-80 lg:p-6">
-          <div className="sticky top-6 flex h-[calc(100vh-3rem)] flex-col rounded-[32px] border border-orange-100 bg-white/90 p-5 shadow-[0_16px_40px_rgba(122,62,25,0.12)] backdrop-blur">
+        <aside className="hidden lg:block lg:w-80 lg:p-6 shrink-0">
+          <div className="sticky top-6 flex h-[calc(100vh-3rem)] flex-col rounded-[32px] border border-orange-100 bg-white/90 p-5 shadow-[0_16px_40px_rgba(122,62,25,0.12)] backdrop-blur overflow-y-auto">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">
                 CivicEye
@@ -118,7 +118,24 @@ function VolunteerPortal() {
               })}
             </nav>
 
-            <div className="mt-auto">
+            <div className="mt-auto pt-4 border-t border-stone-100 space-y-3">
+              {user && (
+                <div className="bg-stone-50/80 rounded-2xl p-3.5 border border-stone-100 text-xs space-y-1 text-left">
+                  <p className="font-bold text-stone-700 truncate">{user.name}</p>
+                  <p className="text-stone-500 truncate text-[11px]">{user.email}</p>
+                  {user.phone && <p className="text-stone-500 text-[11px]">{user.phone}</p>}
+                  {user.nik && (
+                    <p className="text-[10px] text-stone-400 font-mono tracking-wider mt-1">
+                      NIK: {user.nik.replace(/(\d{4})(\d{4})(\d{4})(\d{4})/, "$1 **** **** $4")}
+                    </p>
+                  )}
+                  {user.address && (
+                    <p className="text-[10px] text-stone-400 truncate mt-0.5" title={user.address}>
+                      Adr: {user.address}
+                    </p>
+                  )}
+                </div>
+              )}
               <button
                 onClick={logout}
                 className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-red-600 hover:bg-red-50 hover:text-red-700 transition font-semibold"
@@ -131,7 +148,7 @@ function VolunteerPortal() {
         </aside>
 
         <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8">
-          <header className="mb-4 flex items-center justify-between lg:hidden bg-white/80 p-4 rounded-3xl border border-orange-100 shadow-sm backdrop-blur">
+          <header className="sticky top-0 mb-4 flex items-center justify-between lg:hidden bg-white/80 p-4 rounded-3xl border border-orange-100 shadow-sm backdrop-blur z-40">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">
                 CivicEye
@@ -186,7 +203,18 @@ function VolunteerPortal() {
 }
 
 function AppContent() {
-  const { role } = useApp();
+  const { role, loading } = useApp();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-semibold text-stone-500">Loading CivicEye...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (role === null) {
     return <LoginScreen />;
