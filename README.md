@@ -1,4 +1,0 @@
-# CivicEye
-
-## Mobile App Project 
-
