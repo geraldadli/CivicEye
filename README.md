@@ -6,28 +6,24 @@
 
 ## 📋 Short Description
 
-CivicEye is a mobile-first web application that bridges the gap between community volunteers and municipal/organizational staff. Volunteers can report civic issues, join field tasks, earn Civic Points, and redeem rewards. Staff members can manage reports, assign tasks, review proposals, and analyze community activity — all through a clean, role-based interface.
+CivicEye is a mobile-first web application that bridges the gap between community volunteers and municipal/organizational staff. Volunteers can report civic issues, join field tasks, earn Civic Points, and redeem rewards. Operators accept reports, submit photo proof of the finished work, get paid automatically, and can volunteer in community projects — all through a clean, role-based interface.
 
 ---
 
 ## ✨ Main Features
 
 ### 👤 Volunteer Features
-- **Report Issues** — Submit civic reports (e.g., road damage, illegal dumping) with descriptions, category tags, and photo uploads
+- **Report Issues** — Submit civic reports (e.g., trash piles, illegal dumping) with a photo and a free-text description in the citizen's own words
 - **Community Forum** — Browse, post, and engage in community discussions with upvoting
 - **Field Tasks** — Browse and claim volunteer tasks posted by staff; complete tasks to earn Civic Points
 - **Civic Points & Rewards** — Earn points for completing tasks and redeeming them in the store for rewards
 - **Home Dashboard** — View personal stats, active tasks, transaction history, and recent activity
 - **Community Page** — Explore community projects, proposals, and updates
 
-### 🛡️ Staff Features
-- **Staff Dashboard** — Overview of reports, tasks, and community activity
-- **Report Inbox** — Review, triage, and resolve submitted civic reports
-- **Field Task Management** — Create, assign, and track field tasks for volunteers
-- **Team Management** — Manage volunteer profiles, roles, and team assignments
-- **Proposals** — Submit and review project proposals for community initiatives
-- **Analytics** — View charts and metrics on volunteer engagement and task completion
-- **Staff Settings** — Manage account and staff preferences
+### 🛡️ Operator (Staff) Features
+- **Home** — Summary of open reports and the operator's wallet balance
+- **Report Inbox** — Accept a report, submit a completion report (photo + description), and get paid automatically; finished jobs show as a short history of the latest 5
+- **Forum Aksi** — Volunteer to join citizens' community projects
 
 ### 🔐 Authentication
 - Role-based access control (Volunteer vs. Staff)

@@ -3,52 +3,33 @@ import { useApp } from "@/context/AppContext";
 import {
   Home,
   Inbox,
-  Users,
-  Briefcase,
-  BarChart3,
-  Settings,
   LogOut,
   Menu,
   X,
   ChevronDown,
-  LayoutGrid,
-  Map,
   MessageSquare,
 } from "lucide-react";
 
 import StaffDashboard from "./StaffDashboard";
 import StaffReportInbox from "./StaffReportInbox";
-import StaffTeamManagement from "./StaffTeamManagement";
-import StaffFieldTasks from "./StaffFieldTasks";
-import StaffAnalytics from "./StaffAnalytics";
-import StaffSettings from "./StaffSettings";
-import StaffProposals from "./StaffProposals";
+import StaffForum from "./StaffForum";
+import { rupiah } from "@/utils/format";
 
 type StaffTab =
   | "home"
   | "inbox"
-  | "proposals"
-  | "teams"
-  | "tasks"
-  | "analytics"
-  | "settings";
+  | "forum";
 
 export default function StaffPortal() {
-  const { user, logout, proposals } = useApp();
+  const { user, logout } = useApp();
   const [activeTab, setActiveTab] = useState<StaffTab>("inbox");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
-  const pendingCount = proposals.filter((p) => p.status === "pending").length;
-
   const sidebarItems = [
     { key: "home", label: "Home", icon: Home },
     { key: "inbox", label: "Report Inbox", icon: Inbox },
-    { key: "proposals", label: "Citizen Proposals", icon: MessageSquare },
-    { key: "teams", label: "Team Management", icon: Users },
-    { key: "tasks", label: "Field Tasks", icon: Briefcase },
-    { key: "analytics", label: "Data & Analytics", icon: BarChart3 },
-    { key: "settings", label: "Staff Settings", icon: Settings },
+    { key: "forum", label: "Forum Aksi", icon: MessageSquare },
   ] as const;
 
   const renderContent = () => {
@@ -57,16 +38,8 @@ export default function StaffPortal() {
         return <StaffDashboard setActiveTab={setActiveTab} />;
       case "inbox":
         return <StaffReportInbox />;
-      case "proposals":
-        return <StaffProposals />;
-      case "teams":
-        return <StaffTeamManagement />;
-      case "tasks":
-        return <StaffFieldTasks />;
-      case "analytics":
-        return <StaffAnalytics />;
-      case "settings":
-        return <StaffSettings />;
+      case "forum":
+        return <StaffForum />;
       default:
         return <StaffReportInbox />;
     }
@@ -92,8 +65,8 @@ export default function StaffPortal() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold bg-white/10 px-2.5 py-1 rounded-full border border-white/10">
-            Halo, {user?.name || "David"}
+          <span className="text-xs font-semibold bg-white/10 px-2.5 py-1 rounded-full border border-white/10" title="Saldo dompet operator">
+            {rupiah(user?.cashBalance ?? 0)}
           </span>
           <button
             onClick={logout}
@@ -143,11 +116,6 @@ export default function StaffPortal() {
                   >
                     <Icon className="h-5 w-5 shrink-0" />
                     <span className="flex-1">{label}</span>
-                    {key === "proposals" && pendingCount > 0 && (
-                      <span className="bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
-                        {pendingCount}
-                      </span>
-                    )}
                   </button>
                 );
               })}
@@ -195,11 +163,6 @@ export default function StaffPortal() {
                   >
                     <Icon className="h-5 w-5 shrink-0" />
                     <span className="flex-1">{label}</span>
-                    {key === "proposals" && pendingCount > 0 && (
-                      <span className="bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
-                        {pendingCount}
-                      </span>
-                    )}
                   </button>
                 );
               })}
@@ -232,7 +195,7 @@ export default function StaffPortal() {
                 </div>
                 <div>
                   <p className="text-[10px] text-stone-500 font-semibold leading-tight">
-                    Halo, Staff
+                    Saldo {rupiah(user?.cashBalance ?? 0)}
                   </p>
                   <p className="text-xs font-bold text-stone-800 leading-tight">
                     {user?.name || "David"}
@@ -251,15 +214,6 @@ export default function StaffPortal() {
                       {user?.email || "staff@civiceye.id"}
                     </p>
                   </div>
-                  <button
-                    onClick={() => {
-                      setActiveTab("settings");
-                      setProfileDropdownOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-xs text-stone-700 hover:bg-stone-50 transition"
-                  >
-                    Profil Saya
-                  </button>
                   <button
                     onClick={logout}
                     className="w-full text-left px-4 py-2.5 text-xs text-red-600 hover:bg-red-50 transition font-bold"

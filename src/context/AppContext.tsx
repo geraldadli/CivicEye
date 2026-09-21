@@ -33,6 +33,9 @@ export interface ReportItemExtended {
   chat?: StaffChat[];
   rejectReason?: string;
   taskAssignmentStatus?: string;
+  operatorId?: string;
+  operatorName?: string;
+  proofPhotoUrl?: string;
 }
 
 export interface FieldTeam {
@@ -98,6 +101,7 @@ export interface TransactionItem {
 interface AppContextType {
   role: Role;
   user: User | null;
+  userId: string | null;
   reports: ReportItemExtended[];
   teams: FieldTeam[];
   projects: CommunityProject[];
@@ -126,6 +130,8 @@ interface AppContextType {
   updateReportNotes: (id: string, notes: string) => Promise<void>;
   updateTaskAssignmentStatus: (reportId: string, status: string) => Promise<void>;
   rejectReport: (id: string, reason: string) => Promise<void>;
+  acceptReport: (id: string) => Promise<void>;
+  submitOperatorReport: (id: string, note: string, photoFile: File) => Promise<{ payout: number; balance: number } | undefined>;
   addPoints: (amount: number) => Promise<void>;
   updateTeamStatus: (teamName: string, status: "Available" | "Active" | "Offline") => Promise<void>;
   // Volunteer interactions
@@ -148,6 +154,9 @@ interface AppContextType {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+// Paid to the operator's wallet when their completion report is submitted.
+export const OPERATOR_PAYOUT = 45000;
 
 const DEFAULT_VOLUNTEER_TASK: Omit<VolunteerTask, "status"> = {
   id: "t1",
@@ -237,15 +246,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         .order("created_at", { ascending: true });
       if (chatsErr) throw chatsErr;
 
-      // 6. Fetch project memberships to check which ones the user joined
-      let joinedIds = new Set<string>();
-      if (userRole === "volunteer") {
-        const { data: memberProjects } = await supabase.database
-          .from("project_members")
-          .select("project_id")
-          .eq("user_id", activeUserId);
-        joinedIds = new Set((memberProjects || []).map((mp: any) => mp.project_id));
-      }
+      // 6. Fetch project memberships to check which ones the user joined (citizens and operators)
+      const { data: memberProjects } = await supabase.database
+        .from("project_members")
+        .select("project_id")
+        .eq("user_id", activeUserId);
+      const joinedIds = new Set<string>((memberProjects || []).map((mp: any) => mp.project_id));
 
       // 7. Fetch or Provision Volunteer Task
       if (userRole === "volunteer") {
@@ -331,6 +337,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           notes: rep.notes || "",
           taskAssignmentStatus: rep.task_assignment_status || "Available",
           rejectReason: rep.reject_reason || "",
+          operatorId: rep.operator_id || "",
+          operatorName: rep.operator_name || "",
+          proofPhotoUrl: rep.proof_photo_url || "",
           chat: repChats,
         };
       });
@@ -976,6 +985,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  // Writes `fields` plus the operator columns. If the operator columns are not migrated
+  // yet (migrations/2026-09-21-operator-report.sql), the report is saved without them.
+  const updateReportWithOperator = async (
+    id: string,
+    fields: Record<string, unknown>,
+    operatorFields: Record<string, unknown>
+  ) => {
+    const { error } = await supabase.database
+      .from("reports")
+      .update({ ...fields, ...operatorFields })
+      .eq("id", id);
+    if (!error || !/column/i.test(error.message)) return error;
+
+    console.warn("Operator columns missing on reports; run the operator-report migration.", error.message);
+    const { error: retryErr } = await supabase.database.from("reports").update(fields).eq("id", id);
+    return retryErr;
+  };
+
+  // The operator who accepts a report owns it until they submit the completion report.
+  const acceptReport = async (id: string) => {
+    if (!userId) return;
+    const error = await updateReportWithOperator(
+      id,
+      { status: "Processing", task_assignment_status: "In Progress" },
+      { operator_id: userId, operator_name: user?.name || "" }
+    );
+    if (error) throw new Error("Gagal menerima laporan: " + error.message);
+
+    await fetchData(userId);
+  };
+
+  // Operator uploads proof of the finished work; the system closes the report and pays them.
+  const submitOperatorReport = async (id: string, note: string, photoFile: File) => {
+    if (!userId) return;
+
+    const fileExt = photoFile.name.split(".").pop() || "jpg";
+    const { data: upload, error: uploadErr } = await supabase.storage
+      .from("report-photos")
+      .upload(`proofs/${id}-${Date.now()}.${fileExt}`, photoFile);
+    if (uploadErr || !upload?.url) {
+      throw new Error("Gagal mengunggah foto bukti: " + (uploadErr?.message || "URL kosong"));
+    }
+
+    const reportErr = await updateReportWithOperator(
+      id,
+      { notes: note },
+      { proof_photo_url: upload.url, operator_id: userId, operator_name: user?.name || "" }
+    );
+    if (reportErr) throw new Error("Gagal menyimpan laporan operator: " + reportErr.message);
+
+    const { data: me } = await supabase.database
+      .from("profiles")
+      .select("cash_balance")
+      .eq("id", userId)
+      .maybeSingle();
+    const newCash = (me?.cash_balance || 0) + OPERATOR_PAYOUT;
+    const { error: payErr } = await supabase.database
+      .from("profiles")
+      .update({ cash_balance: newCash })
+      .eq("id", userId);
+    if (payErr) throw new Error("Laporan tersimpan, tetapi pembayaran gagal: " + payErr.message);
+
+    const { data: report } = await supabase.database
+      .from("reports")
+      .select("title")
+      .eq("id", id)
+      .maybeSingle();
+    await addTransaction(userId, "cash", OPERATOR_PAYOUT, `Upah Operator: ${report?.title || "Laporan #" + id}`);
+    setUser((prev) => (prev ? { ...prev, cashBalance: newCash } : null));
+
+    // Closes the report, rewards the citizen, and refreshes state.
+    await updateReportStatus(id, "Selesai");
+    return { payout: OPERATOR_PAYOUT, balance: newCash };
+  };
+
   const addPoints = async (amount: number, description: string = "Penambahan Poin") => {
     if (!userId) return;
 
@@ -1383,6 +1467,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{
         role,
         user,
+        userId,
         reports,
         teams,
         projects,
@@ -1401,6 +1486,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         updateReportNotes,
         updateTaskAssignmentStatus,
         rejectReport,
+        acceptReport,
+        submitOperatorReport,
         addPoints,
         updateTeamStatus,
         // Volunteer interactions

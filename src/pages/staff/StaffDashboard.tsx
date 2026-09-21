@@ -1,13 +1,14 @@
 import React from "react";
 import { useApp } from "@/context/AppContext";
-import { ClipboardList, ShieldAlert, Award, Radio, ChevronRight } from "lucide-react";
+import { ClipboardList, Wallet, Award, Radio, ChevronRight } from "lucide-react";
+import { rupiah } from "@/utils/format";
 
 export default function StaffDashboard({
   setActiveTab,
 }: {
-  setActiveTab: (tab: "home" | "inbox" | "teams" | "tasks" | "analytics" | "settings") => void;
+  setActiveTab: (tab: "home" | "inbox" | "forum") => void;
 }) {
-  const { reports, teams } = useApp();
+  const { reports, user } = useApp();
 
   const stats = {
     total: reports.length,
@@ -17,8 +18,6 @@ export default function StaffDashboard({
     resolved: reports.filter((r) => r.status === "Selesai").length,
     rejected: reports.filter((r) => r.status === "Rejected").length,
   };
-
-  const activeTeamsCount = teams.filter((t) => t.status !== "Offline").length;
 
   return (
     <div className="h-full overflow-y-auto p-6 space-y-6 text-stone-100">
@@ -60,18 +59,17 @@ export default function StaffDashboard({
 
         <div className="bg-[#1E4D6B] p-5 rounded-3xl border border-white/5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-stone-300">Tim Lapangan Aktif</span>
-            <ShieldAlert className="w-5 h-5 text-cyan-400" />
+            <span className="text-xs font-semibold text-stone-300">Dompet Operator</span>
+            <Wallet className="w-5 h-5 text-cyan-400" />
           </div>
-          <p className="text-3xl font-extrabold text-white">{activeTeamsCount} / {teams.length}</p>
-          <p className="text-xs text-stone-400">{teams.filter((t) => t.status === "Available").length} tim siap bertugas</p>
+          <p className="text-2xl font-extrabold text-white">{rupiah(user?.cashBalance ?? 0)}</p>
+          <p className="text-xs text-stone-400">Upah dari laporan yang Anda selesaikan</p>
         </div>
       </div>
 
-      {/* Two Columns Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Columns: Laporan Terbaru */}
-        <div className="lg:col-span-2 bg-[#17415B] rounded-[32px] p-6 border border-white/5 space-y-4">
+      {/* Laporan Terbaru */}
+      <div>
+        <div className="bg-[#17415B] rounded-[32px] p-6 border border-white/5 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-white">Laporan Terbaru Butuh Respon</h3>
             <button
@@ -117,46 +115,6 @@ export default function StaffDashboard({
                 Tidak ada laporan baru atau yang memerlukan review saat ini. Semua terkendali!
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Right 1 Column: Tim Lapangan Status */}
-        <div className="bg-[#17415B] rounded-[32px] p-6 border border-white/5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white">Status Tim</h3>
-            <button
-              onClick={() => setActiveTab("teams")}
-              className="text-xs text-orange-400 hover:text-orange-300 font-semibold"
-            >
-              Kelola Tim
-            </button>
-          </div>
-
-          <div className="space-y-3.5">
-            {teams.map((team) => (
-              <div
-                key={team.name}
-                className="flex items-center justify-between p-3.5 bg-[#1E4D6B]/40 rounded-2xl border border-white/5"
-              >
-                <div>
-                  <p className="font-bold text-white text-sm">{team.name}</p>
-                  <p className="text-[10px] text-stone-400 mt-0.5">
-                    Anggota: {team.members.join(", ")}
-                  </p>
-                </div>
-                <span
-                  className={`text-[10px] font-extrabold px-2 py-1 rounded-full uppercase ${
-                    team.status === "Available"
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                      : team.status === "Active"
-                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                      : "bg-stone-500/20 text-stone-400 border border-stone-500/30"
-                  }`}
-                >
-                  {team.status}
-                </span>
-              </div>
-            ))}
           </div>
         </div>
       </div>
