@@ -22,7 +22,7 @@ const items: Array<{
 
 export default function BottomNav({ tab, setTab, className = "" }: BottomNavProps) {
   return (
-    <nav className={`fixed inset-x-0 bottom-0 z-30 px-4 pb-4 lg:hidden ${className}`}>
+    <nav className={`fixed inset-x-0 bottom-0 z-30 px-2 pb-[max(1rem,env(safe-area-inset-bottom))] lg:hidden ${className}`}>
       <div className="mx-auto max-w-md rounded-[30px] border border-orange-100 bg-white/95 px-3 py-3 shadow-[0_20px_50px_rgba(122,62,25,0.16)] backdrop-blur">
         <div className="grid grid-cols-5 items-center gap-1">
           {items.map(({ key, label, Icon }) => {
@@ -34,7 +34,7 @@ export default function BottomNav({ tab, setTab, className = "" }: BottomNavProp
                 key={key}
                 onClick={() => setTab(key)}
                 aria-label={label}
-                className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 transition ${
+                className={`flex flex-col items-center justify-center gap-1 rounded-2xl min-w-0 min-h-11 px-0.5 py-2 transition ${
                   isCenter
                     ? "-mt-8 rounded-[26px] bg-gradient-to-br from-orange-500 to-amber-400 p-3 text-white shadow-lg shadow-orange-200"
                     : active
@@ -43,7 +43,7 @@ export default function BottomNav({ tab, setTab, className = "" }: BottomNavProp
                 }`}
               >
                 <Icon className={isCenter ? "h-6 w-6" : "h-5 w-5"} />
-                <span className="text-[10px] font-semibold leading-none">{label}</span>
+                <span className="text-[9px] sm:text-[10px] font-semibold leading-tight">{label}</span>
               </button>
             );
           })}

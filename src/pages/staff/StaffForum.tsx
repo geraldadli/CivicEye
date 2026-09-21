@@ -17,7 +17,7 @@ export default function StaffForum() {
   };
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-6 text-stone-100 bg-[#0F354D]">
+    <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6 text-stone-100 bg-[#0F354D]">
       <div>
         <p className="text-xs uppercase font-semibold text-orange-400 tracking-wider">
           Forum Aksi Warga
@@ -40,7 +40,7 @@ export default function StaffForum() {
           return (
             <article
               key={project.id}
-              className="bg-[#17415B] rounded-[32px] p-6 border border-white/5 space-y-4 shadow-lg text-left"
+              className="bg-[#17415B] rounded-[32px] p-4 sm:p-6 border border-white/5 space-y-4 shadow-lg text-left"
             >
               <div className="flex items-start gap-3">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#1E4D6B] border border-white/10 text-2xl">
@@ -60,7 +60,7 @@ export default function StaffForum() {
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs">
+                <div className="flex flex-wrap gap-2 items-center justify-between text-xs">
                   <span className="text-stone-300 font-semibold">Dana Terkumpul</span>
                   <span className="text-stone-400">
                     {rupiah(project.donated)} / {rupiah(project.target)}

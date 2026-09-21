@@ -184,7 +184,7 @@ export default function ForumPage() {
                 key={project.id}
                 className="rounded-[28px] bg-stone-50 p-4 border border-stone-150/50 hover:border-orange-100 transition text-left"
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm border border-stone-150 shrink-0">
                       {project.emoji}
@@ -218,7 +218,7 @@ export default function ForumPage() {
                   <ProgressBar value={progress} />
                 </div>
 
-                <div className="mt-4 flex gap-3">
+                <div className="mt-4 flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={() => handleDonate(project.id, project.title)}
                     className="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition active:scale-[0.99] bg-orange-100 text-orange-850 hover:bg-orange-200"

@@ -36,3 +36,16 @@ textarea {
 button {
   cursor: pointer;
 }
+/* Allow report IDs, addresses and form controls to fit narrow containers. */
+#root { overflow-wrap: anywhere; }
+:where(.flex, .grid) > * { min-width: 0; }
+input, select, textarea { max-width: 100%; min-width: 0; }
+svg { flex-shrink: 0; }
+.staff-portal main .overflow-y-auto {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 639px) {
+  .staff-portal button { min-height: 44px; }
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: 16px; }
+}

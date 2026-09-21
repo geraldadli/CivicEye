@@ -79,7 +79,7 @@ export default function CommunityPage() {
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-3 gap-3">
+        <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { label: `${volunteerTask.distanceKm} Km`, sub: "Jarak" },
             { label: `~${volunteerTask.etaMin} Menit`, sub: "Estimasi" },
@@ -127,7 +127,7 @@ export default function CommunityPage() {
         {/* Task state action buttons */}
         <div className="mt-5 space-y-3">
           {volunteerTask.status === "available" && (
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => alert("Anda menolak penugasan ini.")}
                 className="flex-1 py-3 px-4 rounded-2xl text-sm font-bold bg-stone-100 text-stone-600 hover:bg-stone-200 transition active:scale-[0.99]"

@@ -64,12 +64,12 @@ export default function HomePage({
         </div>
 
         <div className="mt-5 rounded-[28px] bg-white/15 p-4 backdrop-blur-sm ring-1 ring-white/20">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-orange-50/80">
                 Civic Points Kamu
               </p>
-              <div className="mt-1 flex items-end gap-2">
+              <div className="mt-1 flex flex-wrap items-end gap-2">
                 <span className="text-3xl font-extrabold">
                   {points.toLocaleString("id-ID")}
                 </span>
@@ -104,7 +104,7 @@ export default function HomePage({
           <button
             key={item.label}
             onClick={() => setTab?.(item.tabKey as any)}
-            className="flex flex-col items-center gap-2 rounded-[24px] bg-white p-4 text-stone-800 shadow-[0_14px_30px_rgba(122,62,25,0.08)] ring-1 ring-orange-100 transition hover:-translate-y-0.5"
+            className="flex flex-col items-center gap-2 rounded-[24px] bg-white p-2 sm:p-4 text-stone-800 shadow-[0_14px_30px_rgba(122,62,25,0.08)] ring-1 ring-orange-100 transition hover:-translate-y-0.5"
           >
             <div className="rounded-2xl bg-orange-100 p-3 text-orange-700">
               {item.icon}
@@ -136,7 +136,7 @@ export default function HomePage({
               return (
                 <div
                   key={tx.id}
-                  className="flex items-center justify-between rounded-2xl bg-stone-50 p-4 border border-stone-100/50 hover:border-orange-100 transition"
+                  className="flex flex-wrap gap-2 items-center justify-between rounded-2xl bg-stone-50 p-4 border border-stone-100/50 hover:border-orange-100 transition"
                 >
                   <div className="text-left">
                     <p className="font-semibold text-stone-900 text-sm">{tx.description}</p>
@@ -172,10 +172,10 @@ export default function HomePage({
             activeReports.map((report) => (
               <div
                 key={report.id}
-                className="flex items-center justify-between rounded-2xl bg-stone-50 p-4 border border-stone-100/50 hover:border-orange-100 transition"
+                className="flex flex-wrap gap-2 items-center justify-between rounded-2xl bg-stone-50 p-4 border border-stone-100/50 hover:border-orange-100 transition"
               >
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <p className="font-semibold text-stone-900">{report.title}</p>
                     <StatusPill status={report.status} />
                   </div>

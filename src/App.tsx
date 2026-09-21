@@ -147,8 +147,8 @@ function VolunteerPortal() {
           </div>
         </aside>
 
-        <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8">
-          <header className="sticky top-0 mb-4 flex items-center justify-between lg:hidden bg-white/80 p-4 rounded-3xl border border-orange-100 shadow-sm backdrop-blur z-40">
+        <div className="flex-1 min-w-0 px-3 py-3 sm:px-6 lg:px-8">
+          <header className="sticky top-0 mb-4 flex flex-wrap items-center justify-between gap-2 lg:hidden bg-white/80 p-4 rounded-3xl border border-orange-100 shadow-sm backdrop-blur z-40">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">
                 CivicEye
@@ -169,7 +169,7 @@ function VolunteerPortal() {
             </div>
           </header>
 
-          <div className="mx-auto w-full max-w-5xl pb-28 lg:pb-6">
+          <div className="mx-auto w-full max-w-5xl pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-6">
             <div className="mb-4 hidden gap-2 overflow-x-auto rounded-[24px] bg-white/80 p-2 shadow-sm border border-orange-150 md:flex lg:hidden">
               {navItems.map(({ key, label, icon: Icon }) => {
                 const active = tab === key;

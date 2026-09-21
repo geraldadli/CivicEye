@@ -67,7 +67,7 @@ export default function StorePage() {
             key={voucher.id}
             className="rounded-[28px] bg-stone-50 p-4 border border-stone-150/50 hover:border-orange-100 transition text-left"
           >
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="rounded-2xl bg-white p-3 text-orange-600 shadow-sm border border-stone-150">
                   {voucher.type === "food" ? (
@@ -89,7 +89,7 @@ export default function StorePage() {
                 <p className="text-lg font-extrabold mt-0.5">{voucher.points}</p>
               </div>
             </div>
-            <div className="mt-4 flex items-center justify-between border-t border-stone-150 pt-3.5">
+            <div className="mt-4 flex flex-wrap gap-3 items-center justify-between border-t border-stone-150 pt-3.5">
               <div className="flex items-center gap-2 text-xs text-stone-500">
                 <Coins className="h-4 w-4 text-orange-500" />
                 Tukar poinmu

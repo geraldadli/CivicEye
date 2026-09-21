@@ -31,6 +31,10 @@ export default function StaffReportInbox() {
   // Find the selected report object
   const selectedReport = reports.find((r) => r.id === selectedReportId);
 
+  useEffect(() => {
+    if (!selectedReport && visibleReports[0]) setSelectedReportId(visibleReports[0].id);
+  }, [reports, selectedReportId]);
+
   // Completion report form
   const [progressNote, setProgressNote] = useState("");
   const [proofFile, setProofFile] = useState<File | null>(null);
@@ -40,6 +44,7 @@ export default function StaffReportInbox() {
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [completion, setCompletion] = useState<{ title: string; payout: number; balance: number } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const reportBody = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!proofFile) {
@@ -51,21 +56,26 @@ export default function StaffReportInbox() {
     return () => URL.revokeObjectURL(url);
   }, [proofFile]);
 
-  // Mobile layout state: "list" | "detail" | "toolbar"
-  const [mobileView, setMobileView] = useState<"list" | "detail" | "toolbar">("list");
+  // Details and operator actions share one scrollable page on smaller screens.
+  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
+
+  useEffect(() => {
+    if (mobileView === "detail") reportBody.current?.scrollTo({ top: 0 });
+  }, [selectedReportId, mobileView]);
 
   // Keep track of checkboxed select states
   const [checkedReports, setCheckedReports] = useState<Record<string, boolean>>({});
 
   const handleSelectReport = (id: string) => {
+    if (busy) return;
     setSelectedReportId(id);
-    setProgressNote("");
-    setProofFile(null);
-    setCameraOpen(false);
-    setMessage(null);
-    if (window.innerWidth < 1024) {
-      setMobileView("detail");
+    if (id !== selectedReportId) {
+      setProgressNote("");
+      setProofFile(null);
+      setMessage(null);
     }
+    setCameraOpen(false);
+    setMobileView("detail");
   };
 
   const handleCheckboxToggle = (id: string, e: React.MouseEvent) => {
@@ -87,12 +97,11 @@ export default function StaffReportInbox() {
   };
 
   const handleAccept = async () => {
-    if (!selectedReport) return;
+    if (!selectedReport || busy) return;
     setBusy(true);
     setMessage(null);
     try {
       await acceptReport(selectedReport.id);
-      if (window.innerWidth < 1024) setMobileView("toolbar");
     } catch (err: any) {
       setMessage({ kind: "error", text: err.message || String(err) });
     } finally {
@@ -102,7 +111,7 @@ export default function StaffReportInbox() {
 
   const handleSubmitReport = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedReport) return;
+    if (!selectedReport || busy) return;
     if (!proofFile) {
       setMessage({ kind: "error", text: "Ambil atau unggah foto hasil pekerjaan terlebih dahulu." });
       return;
@@ -133,6 +142,15 @@ export default function StaffReportInbox() {
     return (
       <div
         key={report.id}
+        role="button"
+        tabIndex={0}
+        aria-label={`Buka laporan ${report.title}`}
+        onKeyDown={(event) => {
+          if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            handleSelectReport(report.id);
+          }
+        }}
         onClick={() => handleSelectReport(report.id)}
         className={`flex gap-3 p-3 rounded-2xl cursor-pointer border transition text-left relative ${
           isSelected
@@ -143,6 +161,7 @@ export default function StaffReportInbox() {
         {/* Checkbox */}
         <div className="absolute top-3 right-3 flex items-center gap-1 bg-[#092033] px-2 py-1 rounded-lg border border-white/5 z-10" onClick={(e) => handleCheckboxToggle(report.id, e)}>
           <input
+            aria-label={`Pilih laporan ${report.title}`}
             type="checkbox"
             checked={isChecked}
             readOnly
@@ -167,7 +186,7 @@ export default function StaffReportInbox() {
         </div>
 
         {/* Report basic info */}
-        <div className="flex-1 min-w-0 pr-12">
+        <div className="flex-1 min-w-0">
           <span
             className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full ${
               report.status === "New"
@@ -181,7 +200,7 @@ export default function StaffReportInbox() {
           >
             {report.status === "New" ? "New" : report.status}
           </span>
-          <h4 className="font-bold text-white text-sm mt-1.5 truncate">
+          <h4 className="font-bold text-white text-sm mt-1.5">
             {report.title}
           </h4>
           <p className="text-xs text-[#A6C5E3] mt-0.5 truncate">{report.location}</p>
@@ -201,12 +220,12 @@ export default function StaffReportInbox() {
   };
 
   return (
-    <div className="h-full flex flex-col lg:flex-row overflow-hidden text-stone-800 bg-[#0A2540]">
+    <div className="h-full min-h-0 flex flex-col md:flex-row overflow-hidden text-stone-800 bg-[#0A2540]">
       {/* COLUMN 1: REPORT LIST (Laporan Terakhir) */}
       <div
         className={`${
-          mobileView !== "list" ? "hidden lg:flex" : "flex"
-        } w-full lg:w-80 flex-col border-r border-[#1E4D6B] bg-[#0C304A] h-full shrink-0`}
+          mobileView !== "list" ? "hidden md:flex" : "flex"
+        } w-full md:w-64 2xl:w-72 min-h-0 flex-col border-r border-[#1E4D6B] bg-[#0C304A] h-full shrink-0`}
       >
         <div className="p-4 border-b border-[#1E4D6B]">
           <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -239,32 +258,19 @@ export default function StaffReportInbox() {
         </div>
       </div>
 
-      {/* REPORT WORK AREA (COLUMNS 2 & 3 Combined or Swapped on Mobile) */}
+      {/* Stack the same details and actions on mobile; show columns on wide screens. */}
       {selectedReport ? (
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+        <div className={`${mobileView === "list" ? "hidden md:flex" : "flex"} flex-1 flex-col overflow-hidden min-h-0 min-w-0`}>
+          <nav aria-label="Navigasi laporan" className="md:hidden flex shrink-0 gap-2 border-b border-[#1E4D6B] bg-[#0C2942] p-2">
+            <button onClick={() => { setMobileView("list"); setCameraOpen(false); }} className="md:hidden min-h-11 rounded-xl px-3 text-xs font-bold text-orange-300">← List</button>
+          </nav>
+          <div ref={reportBody} className="flex flex-1 min-h-0 min-w-0 flex-col overflow-y-auto 2xl:flex-row 2xl:overflow-hidden">
           
           {/* COLUMN 2: REPORT DETAILS (Map, Photos, Citizen Info) */}
           <div
-            className={`${
-              mobileView !== "detail" ? "hidden lg:flex" : "flex"
-            } flex-1 flex-col overflow-y-auto p-5 space-y-5 border-r border-[#1E4D6B] bg-[#0E3554]`}
+            id="report-details"
+            className="flex shrink-0 2xl:flex-1 min-w-0 min-h-0 flex-col 2xl:overflow-y-auto p-4 sm:p-5 space-y-5 [&>*]:shrink-0 border-r border-[#1E4D6B] bg-[#0E3554]"
           >
-            {/* Mobile Navigation bar inside details */}
-            <div className="lg:hidden flex items-center justify-between pb-3 border-b border-[#1E4D6B]">
-              <button
-                onClick={() => setMobileView("list")}
-                className="text-xs font-bold text-orange-400 hover:text-orange-300"
-              >
-                ← Kembali ke List
-              </button>
-              <button
-                onClick={() => setMobileView("toolbar")}
-                className="text-xs font-bold bg-[#E27D3A] text-white px-3 py-1.5 rounded-xl shadow"
-              >
-                Tindakan →
-              </button>
-            </div>
-
             {/* Header info */}
             <div>
               <p className="text-xs text-stone-400 font-semibold uppercase tracking-wider">
@@ -337,7 +343,7 @@ export default function StaffReportInbox() {
             </div>
 
             {/* Citizen info & Detail description */}
-            <div className="bg-[#123956] border border-[#1E4D6B] rounded-2xl p-4.5 space-y-3">
+            <div className="bg-[#123956] border border-[#1E4D6B] rounded-2xl p-4 space-y-3">
               <div>
                 <h5 className="text-[10px] font-bold uppercase text-stone-300 tracking-wider">
                   Citizen Info
@@ -367,21 +373,9 @@ export default function StaffReportInbox() {
 
           {/* COLUMN 3: INTERNAL OPERATIONS TOOLBAR */}
           <div
-            className={`${
-              mobileView !== "toolbar" ? "hidden lg:flex" : "flex"
-            } w-full lg:w-96 flex-col overflow-y-auto p-5 bg-[#0C2942] border-t lg:border-t-0 lg:border-l border-[#1E4D6B] h-full space-y-4.5 shrink-0`}
+            id="operator-actions"
+            className="flex w-full 2xl:w-96 min-w-0 min-h-0 flex-col 2xl:overflow-y-auto p-4 sm:p-5 bg-[#0C2942] border-t 2xl:border-t-0 2xl:border-l border-[#1E4D6B] 2xl:h-full space-y-5 shrink-0 [&>*]:shrink-0"
           >
-            {/* Mobile Navigation bar inside toolbar */}
-            <div className="lg:hidden flex items-center justify-between pb-3 border-b border-[#1E4D6B]">
-              <button
-                onClick={() => setMobileView("detail")}
-                className="text-xs font-bold text-orange-400 hover:text-orange-300"
-              >
-                ← Kembali ke Detail
-              </button>
-              <span className="text-xs text-stone-400">Tindakan</span>
-            </div>
-
             <div className="space-y-3">
               <h3 className="text-xs font-bold uppercase text-stone-400 tracking-widest">
                 Tindakan Operator
@@ -389,12 +383,13 @@ export default function StaffReportInbox() {
               <ol className="grid grid-cols-3 gap-2">
                 {["Terima", "Foto & Deskripsi", "Kirim & Dibayar"].map((label, idx) => {
                   const step =
-                    selectedReport.status === "New" ? 0 : selectedReport.status === "Selesai" ? 3 : 1;
+                    selectedReport.status === "New" ? 0 : selectedReport.status === "Selesai" ? 3 : proofFile && progressNote.trim() ? 2 : 1;
                   const done = idx < step;
                   const current = idx === step;
                   return (
                     <li
                       key={label}
+                      aria-current={current ? "step" : undefined}
                       className={`rounded-xl border p-2 text-center text-[10px] font-bold leading-tight ${
                         done
                           ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
@@ -471,6 +466,7 @@ export default function StaffReportInbox() {
 
                 <div className="rounded-2xl border border-dashed border-[#2b6d98] bg-[#123956] p-4 text-center space-y-3">
                   <input
+                    aria-label="Foto hasil pekerjaan"
                     ref={fileInput}
                     type="file"
                     accept="image/*"
@@ -489,7 +485,7 @@ export default function StaffReportInbox() {
                     <p className="text-xs text-stone-300 font-semibold">Foto hasil pekerjaan (wajib)</p>
                   )}
                   {!cameraOpen && (
-                    <div className="flex justify-center gap-2">
+                    <div className="flex flex-wrap justify-center gap-2">
                       <button
                         type="button"
                         onClick={() => setCameraOpen(true)}
@@ -516,6 +512,7 @@ export default function StaffReportInbox() {
                   </label>
                   <textarea
                     id="progress-note"
+                    disabled={busy}
                     rows={3}
                     value={progressNote}
                     onChange={(e) => setProgressNote(e.target.value)}
@@ -535,9 +532,10 @@ export default function StaffReportInbox() {
               </form>
             )}
           </div>
+          </div>
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center p-8 text-center text-[#A6C5E3]">
+        <div className="hidden md:flex flex-1 items-center justify-center p-8 text-center text-[#A6C5E3]">
           <div>
             <p className="text-base font-bold">Tidak Ada Laporan Terpilih</p>
             <p className="text-xs text-stone-400 mt-1">Silakan pilih laporan dari kolom kiri.</p>
@@ -552,7 +550,7 @@ export default function StaffReportInbox() {
           aria-labelledby="completion-title"
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         >
-          <div className="w-full max-w-sm rounded-[28px] bg-white p-6 text-center text-stone-900 shadow-2xl">
+          <div className="w-full max-w-sm max-h-full overflow-y-auto rounded-[28px] bg-white p-6 text-center text-stone-900 shadow-2xl">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-white">
               <ShieldCheck className="h-8 w-8" />
             </div>

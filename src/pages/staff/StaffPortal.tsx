@@ -46,13 +46,15 @@ export default function StaffPortal() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FDF9F4] text-stone-850 flex flex-col font-sans">
+    <div className="staff-portal h-dvh overflow-hidden bg-[#FDF9F4] text-stone-850 flex flex-col font-sans">
       {/* Mobile Top Navigation */}
-      <header className="sticky top-0 lg:hidden flex items-center justify-between px-5 py-4 bg-[#0F354D] text-white shadow-md z-45">
+      <header className="shrink-0 lg:hidden flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[#0F354D] text-white shadow-md z-40">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="p-1 hover:bg-white/10 rounded-lg transition"
+            aria-label="Buka navigasi staff"
+            aria-expanded={mobileMenuOpen}
+            className="p-3 hover:bg-white/10 rounded-lg transition"
           >
             <Menu className="w-6 h-6" />
           </button>
@@ -70,7 +72,7 @@ export default function StaffPortal() {
           </span>
           <button
             onClick={logout}
-            className="p-2 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded-xl transition"
+            className="p-3.5 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded-xl transition"
             title="Keluar"
           >
             <LogOut className="w-4 h-4" />
@@ -81,10 +83,11 @@ export default function StaffPortal() {
       {/* Mobile Sidebar Overlay Drawer */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm lg:hidden">
-          <div className="w-72 bg-[#0F354D] h-full flex flex-col p-6 text-white shadow-2xl relative animate-slide-right overflow-y-auto">
+          <div className="w-72 max-w-full bg-[#0F354D] h-full flex flex-col p-6 text-white shadow-2xl relative animate-slide-right overflow-y-auto">
             <button
               onClick={() => setMobileMenuOpen(false)}
-              className="absolute top-5 right-5 p-1.5 hover:bg-white/10 rounded-xl transition"
+              aria-label="Tutup navigasi staff"
+              className="absolute top-5 right-5 p-3 hover:bg-white/10 rounded-xl transition"
             >
               <X className="w-5 h-5" />
             </button>
@@ -135,7 +138,7 @@ export default function StaffPortal() {
       )}
 
       {/* Desktop Main Screen Layout */}
-      <div className="flex-1 flex flex-col lg:flex-row h-screen overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
         {/* Desktop Sidebar */}
         <aside className="hidden lg:flex lg:w-72 lg:flex-col lg:p-6 bg-transparent h-full shrink-0">
           <div className="flex flex-col h-full bg-[#0F354D] rounded-[36px] p-5 text-white shadow-xl shadow-stone-200 border border-slate-700/10 overflow-y-auto">
@@ -181,7 +184,7 @@ export default function StaffPortal() {
         </aside>
 
         {/* Content Wrapper */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden lg:py-6 lg:pr-6">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden lg:py-6 lg:pr-6">
           {/* Top Navbar */}
           <div className="hidden lg:flex items-center justify-end mb-5 bg-[#C9DFEC]/50 hover:bg-[#C9DFEC]/70 border border-[#b8cedb] rounded-[24px] p-2 backdrop-blur transition shrink-0">
             {/* Profile Dropdown */}
@@ -226,7 +229,7 @@ export default function StaffPortal() {
           </div>
 
           {/* Main Subpage Render Area */}
-          <main className="flex-1 overflow-hidden min-h-0 bg-[#0F354D] rounded-[36px] border border-slate-700/10 shadow-lg text-white">
+          <main className="flex-1 overflow-hidden min-h-0 min-w-0 bg-[#0F354D] lg:rounded-[36px] border border-slate-700/10 shadow-lg text-white">
             {renderContent()}
           </main>
         </div>

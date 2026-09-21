@@ -20,7 +20,7 @@ export default function StaffDashboard({
   };
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-6 text-stone-100">
+    <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6 text-stone-100">
       <div>
         <p className="text-xs uppercase font-semibold text-orange-400 tracking-wider">
           Dashboard Ringkasan
@@ -29,9 +29,9 @@ export default function StaffDashboard({
       </div>
 
       {/* Stats Cards Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="bg-[#1E4D6B] p-5 rounded-3xl border border-white/5 space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap gap-2 items-center justify-between">
             <span className="text-xs font-semibold text-stone-300">Total Laporan</span>
             <ClipboardList className="w-5 h-5 text-orange-400" />
           </div>
@@ -40,7 +40,7 @@ export default function StaffDashboard({
         </div>
 
         <div className="bg-[#1E4D6B] p-5 rounded-3xl border border-white/5 space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap gap-2 items-center justify-between">
             <span className="text-xs font-semibold text-stone-300">Sedang Diproses</span>
             <Radio className="w-5 h-5 text-amber-400" />
           </div>
@@ -49,7 +49,7 @@ export default function StaffDashboard({
         </div>
 
         <div className="bg-[#1E4D6B] p-5 rounded-3xl border border-white/5 space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap gap-2 items-center justify-between">
             <span className="text-xs font-semibold text-stone-300">Selesai Ditangani</span>
             <Award className="w-5 h-5 text-emerald-400" />
           </div>
@@ -58,7 +58,7 @@ export default function StaffDashboard({
         </div>
 
         <div className="bg-[#1E4D6B] p-5 rounded-3xl border border-white/5 space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap gap-2 items-center justify-between">
             <span className="text-xs font-semibold text-stone-300">Dompet Operator</span>
             <Wallet className="w-5 h-5 text-cyan-400" />
           </div>
@@ -69,8 +69,8 @@ export default function StaffDashboard({
 
       {/* Laporan Terbaru */}
       <div>
-        <div className="bg-[#17415B] rounded-[32px] p-6 border border-white/5 space-y-4">
-          <div className="flex items-center justify-between">
+        <div className="bg-[#17415B] rounded-[32px] p-4 sm:p-6 border border-white/5 space-y-4">
+          <div className="flex flex-wrap gap-2 items-center justify-between">
             <h3 className="text-lg font-bold text-white">Laporan Terbaru Butuh Respon</h3>
             <button
               onClick={() => setActiveTab("inbox")}
@@ -88,10 +88,10 @@ export default function StaffDashboard({
                 <div
                   key={report.id}
                   onClick={() => setActiveTab("inbox")}
-                  className="flex items-center justify-between p-4 bg-[#1E4D6B]/50 hover:bg-[#1E4D6B] rounded-2xl border border-white/5 transition cursor-pointer"
+                  className="flex flex-wrap gap-2 items-center justify-between p-4 bg-[#1E4D6B]/50 hover:bg-[#1E4D6B] rounded-2xl border border-white/5 transition cursor-pointer"
                 >
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-bold text-white text-sm">{report.title}</span>
                       <span
                         className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase ${
