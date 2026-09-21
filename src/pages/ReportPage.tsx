@@ -3,6 +3,7 @@ import { Camera, ImagePlus, MapPin, Menu, Plus, ScanLine } from "lucide-react";
 import CameraCapture from "../components/CameraCapture";
 import SectionCard from "../components/common/SectionCard";
 import { useApp } from "../context/AppContext";
+import { truncateWords } from "../utils/format";
 
 export default function ReportPage({
   setTab,
@@ -10,7 +11,6 @@ export default function ReportPage({
   setTab?: (tab: "home" | "forum" | "scan" | "community" | "store") => void;
 }) {
   const { addReport } = useApp();
-  const [issueType, setIssueType] = useState("Sampah Berserakan");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("Kampus Bina Nusantara Kemanggisan");
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -57,7 +57,8 @@ export default function ReportPage({
 
     setSubmitting(true);
     try {
-      await addReport(issueType, location, description, photoFile);
+      // No category picker: the citizen's own words become the report title.
+      await addReport(truncateWords(description, 60), location, description.trim(), photoFile);
       setSuccess(true);
       setTimeout(() => {
         if (setTab) {
@@ -149,37 +150,19 @@ export default function ReportPage({
               )}
             </div>
 
-            {/* Step 2: Jenis & Detail */}
+            {/* Step 2: Deskripsi */}
             <div className="rounded-[28px] bg-stone-50 p-5 space-y-3">
-              <p className="font-semibold text-stone-900">Step 2 · Kategori & Detail</p>
-              <div>
-                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">
-                  Kategori Masalah
-                </label>
-                <select
-                  value={issueType}
-                  onChange={(e) => setIssueType(e.target.value)}
-                  className="w-full p-3 bg-white border border-stone-200 rounded-xl outline-none focus:border-orange-300 text-sm text-stone-850"
-                >
-                  <option value="Sampah Berserakan">Sampah Berserakan</option>
-                  <option value="Lampu Jalan Mati">Lampu Jalan Mati</option>
-                  <option value="Saluran Air Tersumbat">Saluran Air Tersumbat</option>
-                  <option value="Jalan Rusak / Berlubang">Jalan Rusak / Berlubang</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">
-                  Deskripsi Kejadian
-                </label>
-                <textarea
-                  rows={4}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full resize-none rounded-xl border border-stone-200 bg-white p-3 text-sm outline-none placeholder:text-stone-400 focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition"
-                  placeholder="Jelaskan secara spesifik agar petugas kami bisa menangani laporan Anda dengan cepat..."
-                />
-              </div>
+              <label htmlFor="report-description" className="block font-semibold text-stone-900">
+                Step 2 · Ceritakan Masalahnya
+              </label>
+              <textarea
+                id="report-description"
+                rows={4}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full resize-none rounded-xl border border-stone-200 bg-white p-3 text-sm outline-none placeholder:text-stone-400 focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition"
+                placeholder="Contoh: Tumpukan sampah plastik di depan pos ronda, sudah 3 hari belum diangkut dan mulai bau."
+              />
             </div>
 
             {/* Step 3: Lokasi */}

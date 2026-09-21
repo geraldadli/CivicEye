@@ -1,43 +1,55 @@
-import React, { useState } from "react";
-import { useApp, ReportItemExtended, ReportStatus } from "@/context/AppContext";
+import React, { useEffect, useRef, useState } from "react";
+import { useApp, OPERATOR_PAYOUT, type ReportItemExtended } from "@/context/AppContext";
+import CameraCapture from "@/components/CameraCapture";
+import { rupiah } from "@/utils/format";
 import {
   MapPin,
   Check,
-  RotateCw,
-  X,
-  MessageSquare,
+  Camera,
+  ImagePlus,
   ShieldCheck,
-  Send,
   User,
   ExternalLink,
 } from "lucide-react";
 
+// Finished jobs are history: only the most recent few stay in the inbox list.
+const HISTORY_LIMIT = 5;
+
 export default function StaffReportInbox() {
-  const {
-    reports,
-    teams,
-    updateReportStatus,
-    assignReportTeam,
-    assignReportSchedule,
-    addStaffChat,
-    updateReportNotes,
-    updateTaskAssignmentStatus,
-    rejectReport,
-  } = useApp();
+  const { reports, userId, acceptReport, submitOperatorReport } = useApp();
+
+  // Reports arrive newest first. Active work is always listed in full.
+  const activeReports = reports.filter((r) => r.status !== "Rejected" && r.status !== "Selesai");
+  const historyReports = reports.filter((r) => r.status === "Selesai").slice(0, HISTORY_LIMIT);
+  const visibleReports = [...activeReports, ...historyReports];
 
   // Selected report ID (default to the first report in the list if available)
-  const nonRejectedReports = reports.filter((r) => r.status !== "Rejected");
   const [selectedReportId, setSelectedReportId] = useState<string>(
-    nonRejectedReports[0]?.id || ""
+    visibleReports[0]?.id || ""
   );
 
   // Find the selected report object
   const selectedReport = reports.find((r) => r.id === selectedReportId);
 
-  // Local state for forms
-  const [rejectReason, setRejectReason] = useState("");
-  const [chatMessage, setChatMessage] = useState("");
-  const [staffNote, setStaffNote] = useState("");
+  // Completion report form
+  const [progressNote, setProgressNote] = useState("");
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [completion, setCompletion] = useState<{ title: string; payout: number; balance: number } | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!proofFile) {
+      setProofPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(proofFile);
+    setProofPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [proofFile]);
 
   // Mobile layout state: "list" | "detail" | "toolbar"
   const [mobileView, setMobileView] = useState<"list" | "detail" | "toolbar">("list");
@@ -47,9 +59,10 @@ export default function StaffReportInbox() {
 
   const handleSelectReport = (id: string) => {
     setSelectedReportId(id);
-    setRejectReason("");
-    setChatMessage("");
-    setStaffNote(reports.find((r) => r.id === id)?.notes || "");
+    setProgressNote("");
+    setProofFile(null);
+    setCameraOpen(false);
+    setMessage(null);
     if (window.innerWidth < 1024) {
       setMobileView("detail");
     }
@@ -63,63 +76,128 @@ export default function StaffReportInbox() {
     }));
   };
 
-  const handleAcceptProcess = () => {
-    if (!selectedReport) return;
-    updateReportStatus(selectedReport.id, "Processing");
-  };
-
-  const handleAssignTeam = (teamName: string) => {
-    if (!selectedReport || !teamName) return;
-    assignReportTeam(selectedReport.id, teamName);
-  };
-
-  const handleAssignSchedule = (schedule: string) => {
-    if (!selectedReport || !schedule) return;
-    assignReportSchedule(selectedReport.id, schedule);
-  };
-
-  const handleReject = () => {
-    if (!selectedReport) return;
-    if (!rejectReason.trim()) {
-      alert("Masukkan alasan penolakan terlebih dahulu.");
+  const selectProof = (file: File) => {
+    if (!file.type.startsWith("image/") || file.size > 20 * 1024 * 1024) {
+      setMessage({ kind: "error", text: "Pilih gambar dengan ukuran maksimal 20MB." });
       return;
     }
-    rejectReport(selectedReport.id, rejectReason);
-    setRejectReason("");
-    // Autoselect the next available report
-    const remaining = reports.filter((r) => r.status !== "Rejected" && r.id !== selectedReport.id);
-    if (remaining.length > 0) {
-      setSelectedReportId(remaining[0].id);
-    } else {
-      setSelectedReportId("");
-    }
-    if (window.innerWidth < 1024) {
-      setMobileView("list");
+    setMessage(null);
+    setProofFile(file);
+    setCameraOpen(false);
+  };
+
+  const handleAccept = async () => {
+    if (!selectedReport) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      await acceptReport(selectedReport.id);
+      if (window.innerWidth < 1024) setMobileView("toolbar");
+    } catch (err: any) {
+      setMessage({ kind: "error", text: err.message || String(err) });
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handleSendChat = (e: React.FormEvent) => {
+  const handleSubmitReport = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedReport || !chatMessage.trim()) return;
-    addStaffChat(selectedReport.id, chatMessage);
-    setChatMessage("");
+    if (!selectedReport) return;
+    if (!proofFile) {
+      setMessage({ kind: "error", text: "Ambil atau unggah foto hasil pekerjaan terlebih dahulu." });
+      return;
+    }
+    if (!progressNote.trim()) {
+      setMessage({ kind: "error", text: "Tuliskan laporan singkat pekerjaan Anda." });
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await submitOperatorReport(selectedReport.id, progressNote.trim(), proofFile);
+      setProgressNote("");
+      setProofFile(null);
+      if (result) {
+        setCompletion({ title: selectedReport.title, ...result });
+      }
+    } catch (err: any) {
+      setMessage({ kind: "error", text: err.message || String(err) });
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const handleSaveNotes = () => {
-    if (!selectedReport) return;
-    updateReportNotes(selectedReport.id, staffNote);
-    alert("Catatan petugas berhasil disimpan.");
-  };
+  const renderReportCard = (report: ReportItemExtended) => {
+    const isSelected = report.id === selectedReportId;
+    const isChecked = !!checkedReports[report.id];
+    return (
+      <div
+        key={report.id}
+        onClick={() => handleSelectReport(report.id)}
+        className={`flex gap-3 p-3 rounded-2xl cursor-pointer border transition text-left relative ${
+          isSelected
+            ? "bg-[#1E4D6B] border-orange-400/80 shadow-[0_4px_16px_rgba(249,115,22,0.15)]"
+            : "bg-[#123956] border-[#1E4D6B] hover:bg-[#184464]"
+        }`}
+      >
+        {/* Checkbox */}
+        <div className="absolute top-3 right-3 flex items-center gap-1 bg-[#092033] px-2 py-1 rounded-lg border border-white/5 z-10" onClick={(e) => handleCheckboxToggle(report.id, e)}>
+          <input
+            type="checkbox"
+            checked={isChecked}
+            readOnly
+            className="w-3.5 h-3.5 rounded border-stone-400 text-orange-500 focus:ring-0 focus:ring-offset-0 bg-transparent cursor-pointer"
+          />
+          <span className="text-[10px] font-bold text-[#A6C5E3]">Select</span>
+        </div>
 
-  const handleTaskStatusChange = (status: string) => {
-    if (!selectedReport) return;
-    updateTaskAssignmentStatus(selectedReport.id, status);
-  };
+        {/* Status dot / indicator */}
+        <div className="shrink-0 flex flex-col items-center">
+          <div
+            className={`w-3 h-3 rounded-full mt-1.5 ${
+              report.status === "New"
+                ? "bg-orange-500"
+                : report.status === "Processing"
+                ? "bg-[#3498db]"
+                : report.status === "Needs Review"
+                ? "bg-yellow-500"
+                : "bg-emerald-500"
+            }`}
+          />
+        </div>
 
-  const handleFinishTask = () => {
-    if (!selectedReport) return;
-    updateReportStatus(selectedReport.id, "Selesai");
-    alert("Masalah ditandai selesai! Volunteer akan menerima notifikasi dan poin reward.");
+        {/* Report basic info */}
+        <div className="flex-1 min-w-0 pr-12">
+          <span
+            className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full ${
+              report.status === "New"
+                ? "bg-orange-500/20 text-orange-400 border border-orange-500/25"
+                : report.status === "Processing"
+                ? "bg-blue-500/20 text-blue-300 border border-blue-500/25"
+                : report.status === "Needs Review"
+                ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/25"
+                : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/25"
+            }`}
+          >
+            {report.status === "New" ? "New" : report.status}
+          </span>
+          <h4 className="font-bold text-white text-sm mt-1.5 truncate">
+            {report.title}
+          </h4>
+          <p className="text-xs text-[#A6C5E3] mt-0.5 truncate">{report.location}</p>
+          <p className="text-[10px] text-stone-400 mt-2">{report.time}</p>
+        </div>
+
+        {/* Photo Thumbnail */}
+        <div className="w-12 h-12 bg-black/20 rounded-xl overflow-hidden shrink-0 border border-white/5">
+          <img
+            src={report.photoUrl}
+            alt={report.title}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -142,83 +220,21 @@ export default function StaffReportInbox() {
 
         {/* Scrollable reports list */}
         <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
-          {nonRejectedReports.map((report) => {
-            const isSelected = report.id === selectedReportId;
-            const isChecked = !!checkedReports[report.id];
-            return (
-              <div
-                key={report.id}
-                onClick={() => handleSelectReport(report.id)}
-                className={`flex gap-3 p-3 rounded-2xl cursor-pointer border transition text-left relative ${
-                  isSelected
-                    ? "bg-[#1E4D6B] border-orange-400/80 shadow-[0_4px_16px_rgba(249,115,22,0.15)]"
-                    : "bg-[#123956] border-[#1E4D6B] hover:bg-[#184464]"
-                }`}
-              >
-                {/* Checkbox */}
-                <div className="absolute top-3 right-3 flex items-center gap-1 bg-[#092033] px-2 py-1 rounded-lg border border-white/5 z-10" onClick={(e) => handleCheckboxToggle(report.id, e)}>
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    readOnly
-                    className="w-3.5 h-3.5 rounded border-stone-400 text-orange-500 focus:ring-0 focus:ring-offset-0 bg-transparent cursor-pointer"
-                  />
-                  <span className="text-[10px] font-bold text-[#A6C5E3]">Select</span>
-                </div>
+          {activeReports.map(renderReportCard)}
 
-                {/* Status dot / indicator */}
-                <div className="shrink-0 flex flex-col items-center">
-                  <div
-                    className={`w-3 h-3 rounded-full mt-1.5 ${
-                      report.status === "New"
-                        ? "bg-orange-500"
-                        : report.status === "Processing"
-                        ? "bg-[#3498db]"
-                        : report.status === "Needs Review"
-                        ? "bg-yellow-500"
-                        : "bg-emerald-500"
-                    }`}
-                  />
-                </div>
-
-                {/* Report basic info */}
-                <div className="flex-1 min-w-0 pr-12">
-                  <span
-                    className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full ${
-                      report.status === "New"
-                        ? "bg-orange-500/20 text-orange-400 border border-orange-500/25"
-                        : report.status === "Processing"
-                        ? "bg-blue-500/20 text-blue-300 border border-blue-500/25"
-                        : report.status === "Needs Review"
-                        ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/25"
-                        : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/25"
-                    }`}
-                  >
-                    {report.status === "New" ? "New" : report.status}
-                  </span>
-                  <h4 className="font-bold text-white text-sm mt-1.5 truncate">
-                    {report.title}
-                  </h4>
-                  <p className="text-xs text-[#A6C5E3] mt-0.5 truncate">{report.location}</p>
-                  <p className="text-[10px] text-stone-400 mt-2">{report.time}</p>
-                </div>
-
-                {/* Photo Thumbnail */}
-                <div className="w-12 h-12 bg-black/20 rounded-xl overflow-hidden shrink-0 border border-white/5">
-                  <img
-                    src={report.photoUrl}
-                    alt={report.title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              </div>
-            );
-          })}
-
-          {nonRejectedReports.length === 0 && (
+          {activeReports.length === 0 && (
             <div className="text-center py-12 text-[#A6C5E3] text-sm">
               Tidak ada laporan aktif di inbox.
             </div>
+          )}
+
+          {historyReports.length > 0 && (
+            <>
+              <p className="px-1 pt-3 text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                Riwayat Selesai · {HISTORY_LIMIT} Terakhir
+              </p>
+              {historyReports.map(renderReportCard)}
+            </>
           )}
         </div>
       </div>
@@ -245,7 +261,7 @@ export default function StaffReportInbox() {
                 onClick={() => setMobileView("toolbar")}
                 className="text-xs font-bold bg-[#E27D3A] text-white px-3 py-1.5 rounded-xl shadow"
               >
-                Buka Toolbar Tindakan →
+                Tindakan →
               </button>
             </div>
 
@@ -301,10 +317,22 @@ export default function StaffReportInbox() {
                     <span className="text-[10px] font-bold text-white">Bukti Warga</span>
                   </div>
                 </div>
-                <div className="rounded-2xl overflow-hidden border border-[#1E4D6B] h-32 bg-[#0A2540] flex flex-col items-center justify-center text-stone-400 text-center p-3">
-                  <span className="text-[11px] font-bold text-stone-300">Foto Pengawas</span>
-                  <p className="text-[9px] mt-1">Belum ada foto pasca-tugas terunggah.</p>
-                </div>
+                {selectedReport.proofPhotoUrl ? (
+                  <div className="rounded-2xl overflow-hidden border border-emerald-500/40 h-32 relative">
+                    <img
+                      src={selectedReport.proofPhotoUrl}
+                      alt="Bukti Operator"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-2 pointer-events-none">
+                      <span className="text-[10px] font-bold text-white">Bukti Operator</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-[#1E4D6B] h-32 flex items-center justify-center text-center p-3 text-[10px] text-stone-400">
+                    Foto hasil pekerjaan muncul di sini setelah laporan operator dikirim.
+                  </div>
+                )}
               </div>
             </div>
 
@@ -335,44 +363,6 @@ export default function StaffReportInbox() {
                 </p>
               </div>
             </div>
-
-            {/* Quick dropdown selectors */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] uppercase font-bold text-stone-300 tracking-wider mb-1.5">
-                  Current: {selectedReport.assignedTeam || "Not Assigned"}
-                </label>
-                <select
-                  value={selectedReport.assignedTeam || ""}
-                  onChange={(e) => handleAssignTeam(e.target.value)}
-                  className="w-full text-xs font-semibold bg-[#123956] border border-[#1E4D6B] rounded-xl p-3 outline-none text-white focus:border-orange-400"
-                >
-                  <option value="">Assign to Field Team</option>
-                  {teams.map((team) => (
-                    <option key={team.name} value={team.name}>
-                      {team.name} ({team.status})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] uppercase font-bold text-stone-300 tracking-wider mb-1.5">
-                  Schedule
-                </label>
-                <select
-                  value={selectedReport.assignedSchedule || ""}
-                  onChange={(e) => handleAssignSchedule(e.target.value)}
-                  className="w-full text-xs font-semibold bg-[#123956] border border-[#1E4D6B] rounded-xl p-3 outline-none text-white focus:border-orange-400"
-                >
-                  <option value="">Schedule Task</option>
-                  <option value="Schedule for Friday">Schedule for Friday</option>
-                  <option value="Schedule for Saturday">Schedule for Saturday</option>
-                  <option value="Schedule for Sunday">Schedule for Sunday</option>
-                  <option value="Schedule for Monday">Schedule for Monday</option>
-                </select>
-              </div>
-            </div>
           </div>
 
           {/* COLUMN 3: INTERNAL OPERATIONS TOOLBAR */}
@@ -389,165 +379,161 @@ export default function StaffReportInbox() {
               >
                 ← Kembali ke Detail
               </button>
-              <span className="text-xs text-stone-400">Operations Toolbar</span>
+              <span className="text-xs text-stone-400">Tindakan</span>
             </div>
 
-            <div>
+            <div className="space-y-3">
               <h3 className="text-xs font-bold uppercase text-stone-400 tracking-widest">
-                INTERNAL OPERATIONS TOOLBAR
+                Tindakan Operator
               </h3>
+              <ol className="grid grid-cols-3 gap-2">
+                {["Terima", "Foto & Deskripsi", "Kirim & Dibayar"].map((label, idx) => {
+                  const step =
+                    selectedReport.status === "New" ? 0 : selectedReport.status === "Selesai" ? 3 : 1;
+                  const done = idx < step;
+                  const current = idx === step;
+                  return (
+                    <li
+                      key={label}
+                      className={`rounded-xl border p-2 text-center text-[10px] font-bold leading-tight ${
+                        done
+                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                          : current
+                          ? "border-orange-400/70 bg-orange-500/10 text-orange-300"
+                          : "border-[#1E4D6B] text-stone-500"
+                      }`}
+                    >
+                      <span className="block text-xs">{done ? "✓" : idx + 1}</span>
+                      {label}
+                    </li>
+                  );
+                })}
+              </ol>
             </div>
 
-            {/* Accept & Process */}
-            <div className="space-y-2">
-              <button
-                onClick={handleAcceptProcess}
-                disabled={selectedReport.status !== "New"}
-                className={`w-full py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition ${
-                  selectedReport.status === "New"
-                    ? "bg-[#1E4D6B] text-white border-orange-400/80 hover:bg-[#23587a]"
-                    : "bg-stone-800/20 text-stone-400 border-stone-850/40 cursor-not-allowed"
+            {message && (
+              <div
+                role={message.kind === "error" ? "alert" : "status"}
+                className={`p-3 rounded-xl text-xs border ${
+                  message.kind === "ok"
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                    : "bg-red-500/10 border-red-500/30 text-red-300"
                 }`}
               >
-                <Check className="w-4 h-4 text-orange-400" />
-                Accept & Process
-              </button>
-            </div>
-
-            {/* Quick Team Assign Button */}
-            <div className="space-y-2">
-              <div className="relative">
-                <select
-                  value={selectedReport.assignedTeam || ""}
-                  onChange={(e) => handleAssignTeam(e.target.value)}
-                  className="w-full py-3 px-4 bg-[#123956] border border-[#1E4D6B] rounded-xl outline-none text-xs font-bold text-white appearance-none cursor-pointer focus:border-orange-400"
-                >
-                  <option value="">Assign to Field Team</option>
-                  {teams.map((t) => (
-                    <option key={t.name} value={t.name}>
-                      Assign to {t.name} ({t.status})
-                    </option>
-                  ))}
-                </select>
-                <span className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-stone-400">
-                  <RotateCw className="w-3.5 h-3.5" />
-                </span>
+                {message.text}
               </div>
-            </div>
+            )}
 
-            {/* Reject / Duplicate */}
-            <div className="p-3 bg-[#123956] border border-[#1E4D6B] rounded-2xl space-y-2.5">
-              <button
-                onClick={handleReject}
-                className="w-full py-2 px-3 bg-[#a83232]/20 hover:bg-[#a83232]/35 border border-[#a83232]/40 text-red-200 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition"
-              >
-                <X className="w-4 h-4 text-red-400" />
-                Reject / Duplicate
-              </button>
-              <input
-                type="text"
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Alasan penolakan / deskripsi duplikat"
-                className="w-full bg-[#0A2540] border border-[#1E4D6B] rounded-xl p-2.5 text-xs text-white placeholder:text-stone-500 outline-none focus:border-orange-400 transition"
-              />
-            </div>
-
-            {/* Internal Staff Chat */}
-            <div className="p-3.5 bg-[#123956] border border-[#1E4D6B] rounded-2xl flex flex-col h-64">
-              <span className="text-[10px] font-bold text-stone-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <MessageSquare className="w-3.5 h-3.5 text-orange-400" />
-                Internal Staff Chat
-              </span>
-
-              {/* Chat messages box */}
-              <div className="flex-1 overflow-y-auto space-y-2 p-1.5 bg-[#092033]/60 rounded-xl mb-2.5 text-xs border border-white/5">
-                {selectedReport.chat && selectedReport.chat.length > 0 ? (
-                  selectedReport.chat.map((msg) => (
-                    <div key={msg.id} className="bg-[#123956] p-2.5 rounded-xl border border-white/5 space-y-1">
-                      <div className="flex items-center justify-between text-[9px] font-bold">
-                        <span className="text-orange-400">{msg.sender}</span>
-                        <span className="text-stone-400">{msg.time}</span>
-                      </div>
-                      <p className="text-white text-xs leading-relaxed">{msg.text}</p>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-10 text-stone-500 text-[10px]">
-                    Belum ada obrolan internal untuk laporan ini. Mulai percakapan di bawah.
-                  </div>
+            {selectedReport.status === "Selesai" ? (
+              <div className="p-4 bg-[#123956] border border-emerald-500/30 rounded-2xl space-y-2">
+                <p className="text-sm font-bold text-emerald-300 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4" /> Laporan Selesai
+                </p>
+                {selectedReport.operatorName && (
+                  <p className="text-xs text-stone-300">Dikerjakan oleh {selectedReport.operatorName}</p>
+                )}
+                {selectedReport.notes && (
+                  <p className="text-xs text-stone-200 leading-relaxed">{selectedReport.notes}</p>
                 )}
               </div>
+            ) : selectedReport.status === "New" ? (
+              <div className="space-y-2">
+                <p className="text-xs text-stone-300 leading-relaxed">
+                  Terima laporan ini untuk mengerjakannya. Setelah selesai, kirim laporan hasil pekerjaan
+                  dan upah {rupiah(OPERATOR_PAYOUT)} dibayarkan otomatis.
+                </p>
+                <button
+                  onClick={handleAccept}
+                  disabled={busy}
+                  className="w-full py-3.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white transition disabled:opacity-50"
+                >
+                  <Check className="w-4 h-4" />
+                  {busy ? "Memproses..." : "Accept & Process"}
+                </button>
+              </div>
+            ) : selectedReport.operatorId && selectedReport.operatorId !== userId ? (
+              <div className="p-4 bg-[#123956] border border-[#1E4D6B] rounded-2xl text-xs text-stone-300">
+                Sedang dikerjakan oleh{" "}
+                <span className="font-bold text-white">{selectedReport.operatorName || "operator lain"}</span>.
+              </div>
+            ) : (
+              <form
+                onSubmit={handleSubmitReport}
+                className="space-y-4 rounded-2xl border border-orange-400/40 bg-[#0F3350] p-4"
+              >
+                <div>
+                  <p className="text-sm font-bold text-white">Laporan Progress Operator</p>
+                  <p className="text-xs text-stone-300 leading-relaxed mt-1">
+                    Foto hasil pekerjaan dan ceritakan apa yang sudah dikerjakan. Setelah dikirim, tugas
+                    selesai dan upah {rupiah(OPERATOR_PAYOUT)} langsung dibayarkan.
+                  </p>
+                </div>
 
-              {/* Chat input */}
-              <form onSubmit={handleSendChat} className="flex gap-2">
-                <input
-                  type="text"
-                  value={chatMessage}
-                  onChange={(e) => setChatMessage(e.target.value)}
-                  placeholder="Ketik pesan internal..."
-                  className="flex-1 bg-[#0A2540] border border-[#1E4D6B] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-orange-400 transition"
-                />
+                <div className="rounded-2xl border border-dashed border-[#2b6d98] bg-[#123956] p-4 text-center space-y-3">
+                  <input
+                    ref={fileInput}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) selectProof(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  {cameraOpen ? (
+                    <CameraCapture onCapture={selectProof} onClose={() => setCameraOpen(false)} />
+                  ) : proofPreview ? (
+                    <img src={proofPreview} alt="Foto hasil pekerjaan" className="mx-auto h-32 w-full object-cover rounded-xl" />
+                  ) : (
+                    <p className="text-xs text-stone-300 font-semibold">Foto hasil pekerjaan (wajib)</p>
+                  )}
+                  {!cameraOpen && (
+                    <div className="flex justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCameraOpen(true)}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                      >
+                        <Camera className="w-4 h-4" /> {proofFile ? "Ambil Ulang" : "Kamera"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => fileInput.current?.click()}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-[#1E4D6B] px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                      >
+                        <ImagePlus className="w-4 h-4" /> Unggah
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="progress-note" className="block text-[10px] font-bold uppercase text-stone-300 tracking-wider mb-1.5">
+                    Deskripsi Pekerjaan
+                  </label>
+                  <textarea
+                    id="progress-note"
+                    rows={3}
+                    value={progressNote}
+                    onChange={(e) => setProgressNote(e.target.value)}
+                    placeholder="Contoh: Sampah sudah diangkut 2 karung, area sudah bersih."
+                    className="w-full bg-[#123956] border border-[#1E4D6B] rounded-xl p-3 text-xs text-white placeholder:text-stone-500 outline-none focus:border-orange-400 transition resize-none"
+                  />
+                </div>
+
                 <button
                   type="submit"
-                  className="p-2 bg-[#E27D3A] hover:bg-orange-600 text-white rounded-xl transition"
+                  disabled={busy || cameraOpen}
+                  className="w-full py-3.5 px-4 rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-lg shadow-emerald-900/20 transition disabled:opacity-50"
                 >
-                  <Send className="w-4 h-4" />
+                  <ShieldCheck className="w-5 h-5" />
+                  {busy ? "Mengirim..." : "Kirim Laporan & Selesaikan"}
                 </button>
               </form>
-            </div>
-
-            {/* Task Assignment Status */}
-            <div>
-              <label className="block text-[10px] font-bold uppercase text-stone-300 tracking-wider mb-1.5">
-                Task Assignment Status
-              </label>
-              <select
-                value={selectedReport.taskAssignmentStatus || "Available"}
-                onChange={(e) => handleTaskStatusChange(e.target.value)}
-                className="w-full text-xs font-semibold bg-[#123956] border border-[#1E4D6B] rounded-xl p-3 outline-none text-white focus:border-orange-400"
-              >
-                <option value="Available">Available</option>
-                <option value="Assigned">Assigned</option>
-                <option value="Busy">Busy</option>
-              </select>
-            </div>
-
-            {/* Staff Notes (Internal Only) */}
-            <div className="space-y-2">
-              <label className="block text-[10px] font-bold uppercase text-stone-300 tracking-wider">
-                Tambahkan Catatan Petugas (Hanya Internal)
-              </label>
-              <textarea
-                rows={3}
-                value={staffNote}
-                onChange={(e) => setStaffNote(e.target.value)}
-                placeholder="Tambahkan Catatan Petugas (Hanya Internal)"
-                className="w-full bg-[#123956] border border-[#1E4D6B] rounded-xl p-3 text-xs text-white placeholder:text-stone-500 outline-none focus:border-orange-400 transition resize-none"
-              />
-              <button
-                onClick={handleSaveNotes}
-                className="w-full py-2 bg-[#1E4D6B] hover:bg-[#256187] text-stone-200 border border-[#2b6d98] rounded-xl text-xs font-semibold transition"
-              >
-                Simpan Catatan
-              </button>
-            </div>
-
-            {/* Finish Task & Resolve Problem */}
-            <div className="pt-2 border-t border-[#1E4D6B]">
-              <button
-                onClick={handleFinishTask}
-                disabled={selectedReport.status === "Selesai"}
-                className={`w-full py-3.5 px-4 rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 border transition ${
-                  selectedReport.status !== "Selesai"
-                    ? "bg-gradient-to-r from-emerald-500 to-teal-400 text-white border-emerald-400/80 shadow-lg shadow-emerald-900/20 hover:scale-[1.01]"
-                    : "bg-stone-800/25 text-stone-400 border-stone-850/40 cursor-not-allowed"
-                }`}
-              >
-                <ShieldCheck className="w-5 h-5 text-emerald-100" />
-                Selesaikan Laporan (Finish Problem)
-              </button>
-            </div>
+            )}
           </div>
         </div>
       ) : (
@@ -555,6 +541,37 @@ export default function StaffReportInbox() {
           <div>
             <p className="text-base font-bold">Tidak Ada Laporan Terpilih</p>
             <p className="text-xs text-stone-400 mt-1">Silakan pilih laporan dari kolom kiri.</p>
+          </div>
+        </div>
+      )}
+
+      {completion && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="completion-title"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+        >
+          <div className="w-full max-w-sm rounded-[28px] bg-white p-6 text-center text-stone-900 shadow-2xl">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-white">
+              <ShieldCheck className="h-8 w-8" />
+            </div>
+            <h3 id="completion-title" className="mt-4 text-xl font-extrabold">Tugas Selesai!</h3>
+            <p className="mt-1 text-sm text-stone-500">{completion.title}</p>
+
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Upah Diterima</p>
+              <p className="mt-1 text-3xl font-extrabold text-emerald-700">+{rupiah(completion.payout)}</p>
+              <p className="mt-2 text-xs text-stone-500">Saldo dompet sekarang {rupiah(completion.balance)}</p>
+            </div>
+
+            <button
+              onClick={() => setCompletion(null)}
+              autoFocus
+              className="mt-5 w-full rounded-2xl bg-orange-500 py-3.5 text-sm font-bold text-white transition hover:bg-orange-600"
+            >
+              Tutup
+            </button>
           </div>
         </div>
       )}

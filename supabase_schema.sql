@@ -44,6 +44,9 @@ create table public.reports (
   notes text,
   task_assignment_status text default 'Available',
   reject_reason text,
+  operator_id uuid references auth.users(id) on delete set null, -- staff who accepted the job
+  operator_name text,
+  proof_photo_url text, -- operator's completion proof
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
