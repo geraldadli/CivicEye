@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { ImagePlus, MapPin, Menu, Plus, ScanLine } from "lucide-react";
-import { AppButton } from "@/components/common/AppButton";
+import { useEffect, useRef, useState } from "react";
+import { Camera, ImagePlus, MapPin, Menu, Plus, ScanLine } from "lucide-react";
+import CameraCapture from "../components/CameraCapture";
 import SectionCard from "../components/common/SectionCard";
 import { useApp } from "../context/AppContext";
 
@@ -13,25 +13,41 @@ export default function ReportPage({
   const [issueType, setIssueType] = useState("Sampah Berserakan");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("Kampus Bina Nusantara Kemanggisan");
-  const [hasPhoto, setHasPhoto] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const fileInput = useRef<HTMLInputElement>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  useEffect(() => {
+    if (!photoFile) return;
+    const url = URL.createObjectURL(photoFile);
+    setPhotoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photoFile]);
+
+  const selectPhoto = (file: File) => {
+    if (!file.type.startsWith("image/") || file.size > 20 * 1024 * 1024) {
+      setPhotoError("Pilih gambar dengan ukuran maksimal 20MB.");
+      return;
+    }
+    setPhotoError("");
+    setPhotoFile(file);
+    setCameraOpen(false);
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setPhotoFile(file);
-      setPhotoPreview(URL.createObjectURL(file));
-      setHasPhoto(true);
-    }
+    if (file) selectPhoto(file);
+    e.target.value = "";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!photoFile) {
-      alert("Silakan unggah foto bukti laporan terlebih dahulu.");
+      alert("Silakan ambil atau unggah foto bukti laporan terlebih dahulu.");
       return;
     }
     if (!description.trim()) {
@@ -83,29 +99,30 @@ export default function ReportPage({
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
             {/* Step 1: Photo Bukti */}
             <div
-              onClick={() => document.getElementById("file-upload")?.click()}
-              className={`rounded-[28px] border-2 border-dashed p-5 text-center cursor-pointer transition ${
-                hasPhoto
+              className={`rounded-[28px] border-2 border-dashed p-5 text-center transition ${
+                photoFile
                   ? "border-emerald-300 bg-emerald-50/50"
                   : "border-orange-200 bg-orange-50 hover:bg-orange-100/50"
               }`}
             >
               <input
-                id="file-upload"
+                ref={fileInput}
                 type="file"
                 accept="image/*"
                 onChange={handleFileChange}
                 className="hidden"
               />
-              {hasPhoto && photoPreview ? (
+              {cameraOpen ? (
+                <CameraCapture onCapture={selectPhoto} onClose={() => setCameraOpen(false)} />
+              ) : photoPreview ? (
                 <div className="space-y-2">
                   <img
                     src={photoPreview}
                     alt="Preview Laporan"
                     className="mx-auto h-32 w-48 object-cover rounded-2xl shadow-md border-2 border-white"
                   />
-                  <p className="font-semibold text-emerald-800 text-sm">Foto Terunggah Berhasil</p>
-                  <p className="text-xs text-stone-500">Ketuk untuk mengganti foto</p>
+                  <p className="font-semibold text-emerald-800 text-sm">Foto Siap Dikirim</p>
+                  <p className="text-xs text-stone-500">Ambil ulang atau unggah gambar untuk mengganti foto</p>
                 </div>
               ) : (
                 <>
@@ -113,9 +130,22 @@ export default function ReportPage({
                     <ImagePlus className="h-6 w-6" />
                   </div>
                   <p className="font-semibold text-stone-900">Step 1 · Membuat Bukti</p>
-                  <p className="mt-1 text-sm text-stone-500">Ketuk untuk mengambil foto atau unggah gambar</p>
+                  <p className="mt-1 text-sm text-stone-500">Buka kamera untuk mengambil foto atau unggah gambar</p>
                   <p className="mt-2 text-xs text-stone-400">Maksimal ukuran 20MB</p>
                 </>
+              )}
+              {photoError && <p role="alert" className="mt-3 text-sm text-red-700">{photoError}</p>}
+              {!cameraOpen && (
+                <div className="mt-4 flex flex-wrap justify-center gap-3">
+                  <button type="button" onClick={() => setCameraOpen(true)} disabled={submitting}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-orange-500 px-4 py-3 font-semibold text-white disabled:opacity-50">
+                    <Camera className="h-5 w-5" /> {photoFile ? "Ambil Ulang" : "Buka Kamera"}
+                  </button>
+                  <button type="button" onClick={() => fileInput.current?.click()} disabled={submitting}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 font-semibold text-orange-700 disabled:opacity-50">
+                    <ImagePlus className="h-5 w-5" /> Unggah Gambar
+                  </button>
+                </div>
               )}
             </div>
 
@@ -194,7 +224,7 @@ export default function ReportPage({
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || cameraOpen}
               className="w-full py-4 px-4 bg-gradient-to-r from-orange-500 to-amber-400 text-white font-bold rounded-2xl shadow-lg shadow-orange-200 hover:shadow-orange-300 active:scale-[0.99] transition flex items-center justify-center gap-2"
             >
               {submitting ? (
