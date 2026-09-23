@@ -13,6 +13,7 @@ import ProgressBar from "../components/common/ProgressBar";
 import SectionCard from "../components/common/SectionCard";
 import StatusPill from "../components/common/StatusPill";
 import { useApp } from "../context/AppContext";
+import TrailerCard from "../components/TrailerCard";
 
 export default function HomePage({
   setTab,
@@ -113,6 +114,8 @@ export default function HomePage({
           </button>
         ))}
       </section>
+
+      <TrailerCard />
 
       <SectionCard
         title="Riwayat Wallet & Civic Points"

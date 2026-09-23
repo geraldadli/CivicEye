@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useApp } from "@/context/AppContext";
+import TrailerCard from "./TrailerCard";
 import {
   Mail,
   Lock,
@@ -167,12 +168,12 @@ export default function LoginScreen() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 relative overflow-hidden bg-stone-50">
+    <div className="min-h-screen flex flex-col items-center justify-center gap-8 px-4 py-12 relative overflow-hidden bg-stone-50 lg:flex-row lg:gap-12 lg:px-10 xl:px-16">
       {/* Background blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-orange-200/40 blur-3xl" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-amber-200/40 blur-3xl" />
 
-      <div className="w-full max-w-lg z-10">
+      <div className="w-full max-w-lg z-10 lg:max-w-none lg:flex-1">
         <div className="text-center mb-8">
           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600 bg-orange-50 px-3 py-1.5 rounded-full">
             CivicEye Platform
@@ -593,6 +594,9 @@ export default function LoginScreen() {
             </>
           )}
         </div>
+      </div>
+      <div className="w-full max-w-lg z-10 lg:max-w-none lg:flex-1">
+        <TrailerCard />
       </div>
     </div>
   );

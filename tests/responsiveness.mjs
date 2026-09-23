@@ -145,11 +145,45 @@ try {
  assert(await page.getByText('Sedang dikerjakan oleh').isVisible());
  assert.equal(await page.getByLabel('Deskripsi Pekerjaan').count(),0);
  await page.goto(base+'/?empty');await page.getByText('Tidak ada laporan aktif di inbox.').waitFor();await check('empty inbox');
- for(const width of [320,768]) {
+ for(const width of [320,768,1280,1920]) {
    await page.setViewportSize({width,height:667});await page.goto(base+'/?role=login');
    await page.getByRole('heading',{name:'Selamat Datang Kembali'}).waitFor();await check(width+' login');
    await page.getByRole('button',{name:'Daftar Sekarang'}).click();await check(width+' volunteer registration');
    await page.getByRole('button',{name:'Staff Portal',exact:true}).click();await check(width+' staff registration');
+ }
+ // The trailer stays idle until requested, then decodes and seeks on both entry points.
+ for(const role of ['login','volunteer']) {
+   await page.goto(base+'/?role='+role);
+   const video=page.getByLabel('Trailer CivicEye: dari laporan warga hingga lingkungan bersih');
+   await video.waitFor();
+   assert.deepEqual(await video.evaluate(v=>({paused:v.paused,preload:v.preload,controls:v.controls,inline:v.playsInline})),
+     {paused:true,preload:'none',controls:true,inline:true});
+   assert.deepEqual(await video.evaluate(v=>({network:v.networkState,ready:v.readyState,buffered:v.buffered.length})),
+     {network:1,ready:0,buffered:0},'Trailer must stay idle without buffering before play');
+   const poster=await page.request.get(new URL(await video.getAttribute('poster'),base).href);
+   assert(poster.ok(),'Trailer poster is served');
+   await video.evaluate(v=>v.play());
+   await page.waitForFunction(()=>document.querySelector('video').currentTime>0.2);
+   assert.equal(await video.evaluate(v=>v.videoWidth),1280);
+   assert.equal(await video.evaluate(v=>v.duration),60);
+   await video.evaluate(v=>{v.pause();v.currentTime=45;});
+   await page.waitForFunction(()=>{const v=document.querySelector('video');return !v.seeking && v.currentTime===45 && v.readyState>=2;});
+   assert.equal(await video.evaluate(v=>v.error),null,'Trailer decodes after seeking');
+   const loop=page.getByRole('checkbox',{name:'Ulangi video'});
+   assert.equal(await video.evaluate(v=>v.loop),false);
+   await loop.check();
+   assert.equal(await video.evaluate(v=>v.loop),true);
+   await video.evaluate(async v=>{v.currentTime=v.duration-0.3;await v.play();});
+   await page.waitForFunction(()=>{const v=document.querySelector('video');return v.currentTime<2 && !v.paused;});
+   await loop.uncheck();
+   assert.equal(await video.evaluate(v=>v.loop),false);
+   await video.evaluate(v=>{v.currentTime=v.duration-0.3;});
+   await page.waitForFunction(()=>document.querySelector('video').ended);
+   for(const width of [320,1280,1920]) {
+     await page.setViewportSize({width,height:800});
+     await reachable(video);await check(width+' '+role+' trailer');
+     await page.screenshot({path:'output/responsive-checks/trailer-'+role+'-'+width+'.png'});
+   }
  }
  assert.deepEqual(errors,[],'No browser errors');
  assert.deepEqual(failures,[],'No horizontal overflow or clipped content');
