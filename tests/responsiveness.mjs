@@ -169,13 +169,15 @@ try {
    await video.evaluate(v=>{v.pause();v.currentTime=45;});
    await page.waitForFunction(()=>{const v=document.querySelector('video');return !v.seeking && v.currentTime===45 && v.readyState>=2;});
    assert.equal(await video.evaluate(v=>v.error),null,'Trailer decodes after seeking');
-   const loop=page.getByRole('checkbox',{name:'Ulangi video'});
+   const loop=page.getByRole('button',{name:'Ulangi video'});
    assert.equal(await video.evaluate(v=>v.loop),false);
-   await loop.check();
+   await loop.click();
+   assert.equal(await loop.getAttribute('aria-pressed'),'true');
    assert.equal(await video.evaluate(v=>v.loop),true);
    await video.evaluate(async v=>{v.currentTime=v.duration-0.3;await v.play();});
    await page.waitForFunction(()=>{const v=document.querySelector('video');return v.currentTime<2 && !v.paused;});
-   await loop.uncheck();
+   await loop.click();
+   assert.equal(await loop.getAttribute('aria-pressed'),'false');
    assert.equal(await video.evaluate(v=>v.loop),false);
    await video.evaluate(v=>{v.currentTime=v.duration-0.3;});
    await page.waitForFunction(()=>document.querySelector('video').ended);
